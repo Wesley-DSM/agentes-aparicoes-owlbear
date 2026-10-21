@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#171717" />
+    <title>Ficha A&A</title>
+  </head>
+  <body>
+    <main id="app" class="sheet-page not-ready">
+      <header class="sheet-header">
+        <div class="mark token-mark" aria-hidden="true">
+          <img id="selected-token-image" alt="" hidden />
+          <span id="selected-token-fallback">A&amp;A</span>
+        </div>
+        <div class="sheet-title">
+          <p class="eyebrow">FICHA DO PERSONAGEM</p>
+          <h1 id="selected-name">Carregando ficha…</h1>
+        </div>
+        <button id="reset-sheet" class="reset-sheet-button sheet-options-button" type="button" aria-label="Opções da ficha" title="Opções da ficha" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </button>
+      </header>
+
+      <div class="sheet-actions">
+        <button id="toggle-player-visibility" class="visibility-toggle" type="button" hidden>Esconder</button>
+        <button id="add-to-initiative" class="initiative-toggle" type="button" disabled>Iniciativa</button>
+      </div>
+
+      <dialog id="sheet-options-dialog" class="confirm-dialog sheet-options-dialog" aria-labelledby="sheet-options-title">
+        <h2 id="sheet-options-title">Opções da ficha</h2>
+        <p>Gerencie os dados deste personagem.</p>
+        <div class="sheet-options-actions">
+          <button id="sheet-option-delete" class="sheet-option-button destructive-option" type="button">Apagar ficha</button>
+          <button id="sheet-option-clear" class="sheet-option-button" type="button">Limpar ficha</button>
+          <button id="sheet-option-import" class="sheet-option-button" type="button">Importar ficha</button>
+          <button id="sheet-option-export" class="sheet-option-button" type="button">Exportar ficha para navegador</button>
+        </div>
+        <div class="confirm-dialog-actions"><button id="close-sheet-options" type="button" class="confirm-cancel">Fechar</button></div>
+      </dialog>
+      <dialog id="reset-sheet-dialog" class="confirm-dialog" aria-labelledby="reset-sheet-title" aria-describedby="reset-sheet-description">
+        <h2 id="reset-sheet-title">Limpar ficha?</h2>
+        <p id="reset-sheet-description">As informações de Agentes &amp; Aparições serão removidas do token. O token permanecerá na cena, mas os dados da ficha não poderão ser recuperados. Esta ação não pode ser desfeita.</p>
+        <div class="confirm-dialog-actions">
+          <button id="cancel-reset-sheet" type="button" class="confirm-cancel">Cancelar</button>
+          <button id="confirm-reset-sheet" type="button" class="confirm-destructive">Limpar ficha</button>
+        </div>
+      </dialog>
+      <dialog id="delete-token-dialog" class="confirm-dialog" aria-labelledby="delete-token-title" aria-describedby="delete-token-description">
+        <h2 id="delete-token-title">Apagar ficha?</h2>
+        <p id="delete-token-description">O token do personagem será removido da cena junto com a ficha. Esta ação não pode ser desfeita.</p>
+        <div class="confirm-dialog-actions">
+          <button id="cancel-delete-token" type="button" class="confirm-cancel">Cancelar</button>
+          <button id="confirm-delete-token" type="button" class="confirm-destructive">Apagar ficha</button>
+        </div>
+      </dialog>
+      <input id="import-sheet-file" type="file" accept="application/json,.json,text/html,.html,.htm" hidden />
+
+      <form id="sheet-form" autocomplete="off">
+        <nav class="sheet-tabs" aria-label="Abas da ficha">
+          <button class="sheet-tab active" type="button" data-sheet-tab="character-tab" aria-selected="true">Ficha</button>
+          <button class="sheet-tab" type="button" data-sheet-tab="inventory-tab" aria-selected="false">Inventário</button>
+          <button class="sheet-tab" type="button" data-sheet-tab="powers-tab" aria-selected="false">Poderes</button>
+          <button class="sheet-tab" type="button" data-sheet-tab="rituals-tab" aria-selected="false">Rituais</button>
+          <button class="sheet-tab" type="button" data-sheet-tab="profile-tab" aria-selected="false">Perfil</button>
+        </nav>
+
+        <div id="character-tab" class="sheet-tab-panel" data-sheet-panel>
+        <section class="panel collapsible-panel identity-panel" aria-labelledby="identity-heading">
+          <div class="panel-heading">
+            <h2 id="identity-heading">Identidade</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="identity-content" aria-expanded="true" aria-label="Recolher Identidade">−</button>
+          </div>
+          <div id="identity-content" class="collapsible-content">
+            <div class="identity-name-row">
+              <label class="field" id="character-name-field">
+                <span>Nome</span>
+                <input id="character-name" name="characterName" type="text" maxlength="100" placeholder="Nome do personagem" />
+              </label>
+              <button id="toggle-token-name" class="token-name-toggle" type="button" aria-pressed="true" title="Mostrar ou esconder o nome definido nas propriedades do token">Esconder</button>
+            </div>
+            <div class="identity-pair identity-class-organization">
+              <label class="field">
+                <span>Classe</span>
+                <select id="character-class" name="characterClass" data-autosave>
+                  <option value="">Selecionar classe</option>
+                  <option value="Combatente">Combatente</option>
+                  <option value="Especialista">Especialista</option>
+                  <option value="Exorcista">Exorcista</option>
+                  <option value="Monstruoso">Monstruoso</option>
+                  <option value="Ocultista">Ocultista</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Organização</span>
+                <select id="character-organization" name="organization" data-autosave>
+                  <option value="">Selecionar organização</option>
+                  <option value="Instituto">Instituto</option>
+                  <option value="EMPAP">EMPAP</option>
+                  <option value="ABIN">ABIN</option>
+                  <option value="Paralink">Paralink</option>
+                  <option value="Sexto Círculo">Sexto Círculo</option>
+                </select>
+              </label>
+            </div>
+            <div class="identity-pair identity-occupation-evolution">
+              <label class="field">
+                <span>Ocupação</span>
+                <input id="character-occupation" name="occupation" type="text" maxlength="100" placeholder="Ocupação" />
+              </label>
+              <label class="field evolution-field">
+                <span>Evolução (%)</span>
+                <input id="character-evolution" name="evolution" type="number" min="0" max="100" step="1" value="1" required />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel collapsible-panel resources-panel" aria-labelledby="resources-heading">
+          <div class="panel-heading">
+            <h2 id="resources-heading">Ferimentos e Estresses</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="resources-content" aria-expanded="true" aria-label="Recolher Ferimentos e Estresses">−</button>
+          </div>
+          <div id="resources-content" class="collapsible-content">
+            <div class="resource-grid">
+              <div class="resource-column">
+                <div class="resource-heading">
+                  <h3>Ferimentos</h3>
+                  <span class="resource-dot wound" aria-hidden="true"></span>
+                </div>
+                <div class="resource-values-grid">
+                  <label class="field compact-field">
+                    <span>Normais</span>
+                    <input id="resource-one-normal" type="number" min="0" step="1" value="0" required />
+                  </label>
+                  <label class="field compact-field">
+                    <span>Crônicos</span>
+                    <input id="resource-one-chronic" type="number" min="0" step="1" value="0" required />
+                  </label>
+                  <label class="field compact-field">
+                    <span>Inconsciente</span>
+                    <input id="resource-one-unconscious" type="number" min="0" step="1" value="10" required />
+                  </label>
+                </div>
+              </div>
+              <div class="resource-column">
+                <div class="resource-heading">
+                  <h3>Estresses</h3>
+                  <span class="resource-dot stress" aria-hidden="true"></span>
+                </div>
+                <div class="resource-values-grid">
+                  <label class="field compact-field">
+                    <span>Normais</span>
+                    <input id="resource-two-normal" type="number" min="0" step="1" value="0" required />
+                  </label>
+                  <label class="field compact-field">
+                    <span>Crônicos</span>
+                    <input id="resource-two-chronic" type="number" min="0" step="1" value="0" required />
+                  </label>
+                  <label class="field compact-field">
+                    <span>Inconsciente</span>
+                    <input id="resource-two-unconscious" type="number" min="0" step="1" value="10" required />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel collapsible-panel defenses-panel" aria-labelledby="defenses-heading">
+          <div class="panel-heading">
+            <h2 id="defenses-heading">Defesas</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="defenses-content" aria-expanded="true" aria-label="Recolher Defesas">−</button>
+          </div>
+          <div id="defenses-content" class="collapsible-content">
+            <div class="defenses-grid">
+              <label class="field compact-field">
+                <span>Evasão</span>
+                <input id="character-evasion" type="number" min="0" step="1" placeholder="0" />
+              </label>
+              <label class="field compact-field">
+                <span>Proteção</span>
+                <input id="character-protection" type="number" min="0" step="1" placeholder="0" />
+              </label>
+              <label class="field compact-field">
+                <span>Convicção</span>
+                <input id="character-conviction" type="number" min="0" step="1" placeholder="0" />
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel collapsible-panel skills-panel" aria-labelledby="skills-heading">
+          <div class="panel-heading">
+            <h2 id="skills-heading">Perícias</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="skills-content" aria-expanded="true" aria-label="Recolher Perícias">−</button>
+          </div>
+          <div id="skills-content" class="collapsible-content">
+            <div id="skills-list" class="skills-list"></div>
+          </div>
+        </section>
+        </div>
+
+        <div id="inventory-tab" class="sheet-tab-panel" data-sheet-panel hidden>
+          <section class="panel collapsible-panel" aria-labelledby="inventory-heading">
+            <div class="panel-heading inventory-panel-heading">
+              <div class="inventory-toolbar">
+                <input id="inventory-spaces" name="inventorySpaces" type="hidden" value="0" />
+                <div class="inventory-spaces-control">
+                  <button id="inventory-spaces-used" class="inventory-spaces-used" type="button" aria-live="polite" title="Clique para editar o limite">Ocupados: 0 / 0</button>
+                  <input id="inventory-spaces-editor" class="inventory-spaces-editor" type="number" min="0" max="9999" step="1" inputmode="numeric" aria-label="Limite de espaços do inventário" title="Digite o limite e pressione Enter" hidden />
+                </div>
+                <button id="add-inventory-item" class="add-entry-button" type="button">+ Adicionar item</button>
+                <button class="collapse-toggle" type="button" data-collapse-target="inventory-content" aria-expanded="true" aria-label="Recolher Inventário">−</button>
+              </div>
+            </div>
+            <div id="inventory-content" class="collapsible-content">
+              <div id="inventory-list" class="entry-list"></div>
+            </div>
+          </section>
+        </div>
+
+        <div id="powers-tab" class="sheet-tab-panel" data-sheet-panel hidden>
+          <section class="panel collapsible-panel" aria-labelledby="powers-heading">
+            <div class="panel-heading">
+              <h2 id="powers-heading">Poderes</h2>
+              <div class="panel-heading-actions">
+                <button id="add-power" class="add-entry-button" type="button">+ Adicionar poder</button>
+                <button class="collapse-toggle" type="button" data-collapse-target="powers-content" aria-expanded="true" aria-label="Recolher Poderes">−</button>
+              </div>
+            </div>
+            <div id="powers-content" class="collapsible-content">
+              <div id="powers-list" class="entry-list ability-list"></div>
+            </div>
+          </section>
+        </div>
+
+        <div id="rituals-tab" class="sheet-tab-panel" data-sheet-panel hidden>
+          <section class="panel collapsible-panel" aria-labelledby="rituals-heading">
+            <div class="panel-heading">
+              <h2 id="rituals-heading">Rituais</h2>
+              <div class="panel-heading-actions">
+                <button id="add-ritual" class="add-entry-button" type="button">+ Adicionar ritual</button>
+                <button class="collapse-toggle" type="button" data-collapse-target="rituals-content" aria-expanded="true" aria-label="Recolher Rituais">−</button>
+              </div>
+            </div>
+            <div id="rituals-content" class="collapsible-content">
+              <div id="rituals-list" class="entry-list ability-list"></div>
+            </div>
+          </section>
+        </div>
+
+        <div id="profile-tab" class="sheet-tab-panel" data-sheet-panel hidden>
+          <section class="panel collapsible-panel" aria-labelledby="parameters-heading">
+            <div class="panel-heading">
+              <h2 id="parameters-heading">Parâmetros</h2>
+              <div class="panel-heading-actions">
+                <button id="add-parameter" class="add-entry-button" type="button">+ Adicionar parâmetro</button>
+                <button class="collapse-toggle" type="button" data-collapse-target="parameters-content" aria-expanded="true" aria-label="Recolher Parâmetros">−</button>
+              </div>
+            </div>
+            <div id="parameters-content" class="collapsible-content">
+              <div id="parameters-list" class="entry-list"></div>
+            </div>
+          </section>
+          <section class="panel collapsible-panel" aria-labelledby="traumas-heading">
+            <div class="panel-heading">
+              <h2 id="traumas-heading">Traumas</h2>
+              <div class="panel-heading-actions">
+                <button id="add-trauma" class="add-entry-button" type="button">+ Adicionar trauma</button>
+                <button class="collapse-toggle" type="button" data-collapse-target="traumas-content" aria-expanded="true" aria-label="Recolher Traumas">−</button>
+              </div>
+            </div>
+            <div id="traumas-content" class="collapsible-content">
+              <div id="traumas-list" class="entry-list"></div>
+            </div>
+          </section>
+          <section class="panel collapsible-panel" aria-labelledby="history-heading">
+            <div class="panel-heading">
+              <h2 id="history-heading">História</h2>
+              <button class="collapse-toggle" type="button" data-collapse-target="history-content" aria-expanded="true" aria-label="Recolher História">−</button>
+            </div>
+            <div id="history-content" class="collapsible-content">
+              <label class="field history-field">
+                <textarea id="character-history" name="characterHistory" rows="8" maxlength="16000" data-format-replace="true" aria-label="História" placeholder="Escreva a história do personagem…"></textarea>
+              </label>
+            </div>
+          </section>
+        </div>
+      </form>
+
+      <section class="notice" id="notice" role="status" aria-live="polite">
+        Aguardando conexão com o Owlbear Rodeo…
+      </section>
+    </main>
+    <script type="module" src="./src/sheet.js"></script>
+  </body>
+</html>

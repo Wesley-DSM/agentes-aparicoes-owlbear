@@ -1,0 +1,13 @@
+{
+  "name": "Ficha Agentes & Aparições",
+  "version": "0.45.0",
+  "manifest_version": 1,
+  "background_url": "/background.html",
+  "action": {
+    "title": "Ficha A&A",
+    "icon": "/icon.png",
+    "popover": "/",
+    "height": 620,
+    "width": 390
+  }
+}

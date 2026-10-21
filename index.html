@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#171717" />
+    <title>Ficha Agentes &amp; Aparições</title>
+  </head>
+  <body>
+    <main id="app" class="settings-page main-extension-page">
+      <nav class="main-tabs" aria-label="Abas da extensão">
+        <button class="main-tab active" type="button" data-main-tab="initiative-view" aria-selected="true">Iniciativa</button>
+        <button class="main-tab chat-main-tab" type="button" data-main-tab="roll-history-view" aria-selected="false">CHAT<span id="chat-unread-count" class="chat-unread-count" aria-live="polite" aria-atomic="true" hidden>0</span></button>
+        <button class="main-tab settings-icon-tab" type="button" data-main-tab="settings-view" aria-label="Configurações" title="Configurações" aria-selected="false">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.49.49 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.95l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.23-1.14.55-1.63.95l-2.39-.96a.48.48 0 0 0-.6.22L2.62 8.84a.48.48 0 0 0 .12.64l2.03 1.58c-.05.31-.07.63-.07.94s.02.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.49.49 0 0 0 .6.22l2.39-.96c.49.4 1.04.72 1.63.95l.36 2.54a.48.48 0 0 0 .48.41h3.84a.48.48 0 0 0 .48-.41l.36-2.54c.59-.23 1.14-.55 1.63-.95l2.39.96a.48.48 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" />
+          </svg>
+        </button>
+      </nav>
+      <section id="initiative-view" class="main-tab-panel">
+        <header class="initiative-heading">
+          <h2>Ordem de iniciativa</h2>
+          <button id="toggle-initiative-details" class="initiative-details-toggle" type="button" aria-label="Mostrar status detalhado" title="Mostrar status detalhado" aria-pressed="false" hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </header>
+        <div id="initiative-list" class="initiative-list" aria-live="polite"></div>
+        <div id="initiative-empty" class="initiative-empty">
+          <strong>Nenhum personagem na iniciativa</strong>
+          <p>Abra a ficha de um token e pressione <strong>Iniciativa</strong> para adicioná-lo à ordem.</p>
+        </div>
+        <div class="round-controls">
+          <button id="previous-turn" class="turn-arrow" type="button" aria-label="Turno anterior" title="Turno anterior">‹</button>
+          <button id="round-button" class="round-button" type="button" aria-expanded="false">Rodada 1</button>
+          <button id="next-turn" class="turn-arrow" type="button" aria-label="Próximo turno" title="Próximo turno">›</button>
+        </div>
+        <div id="round-actions" class="round-actions" hidden>
+          <button id="reset-rounds" type="button">Resetar rodadas</button>
+        </div>
+        <p id="initiative-notice" class="notice" role="status" aria-live="polite">Carregando iniciativa da sala…</p>
+      </section>
+
+      <section id="roll-history-view" class="main-tab-panel" hidden>
+        <div class="log-roll-toolbar" aria-label="Rolar dados manualmente">
+          <div id="log-roll-buttons" class="log-roll-buttons">
+            <button type="button" data-roll-dice="1" aria-label="Rolar um d10">I</button>
+            <button type="button" data-roll-dice="2" aria-label="Rolar dois d10">II</button>
+            <button type="button" data-roll-dice="3" aria-label="Rolar três d10">III</button>
+            <button type="button" data-roll-dice="4" aria-label="Rolar quatro d10">IV</button>
+            <button type="button" data-roll-dice="5" aria-label="Rolar cinco d10">V</button>
+          </div>
+          <button id="clear-log-button" class="reset-sheet-button log-clear-button" type="button" aria-label="Limpar CHAT" title="Limpar CHAT" hidden>
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div id="roll-history-list" class="roll-history-list" aria-live="polite"></div>
+        <div id="roll-history-empty" class="initiative-empty">
+          <strong>Nenhuma mensagem no CHAT</strong>
+        </div>
+        <form id="chat-composer" class="chat-composer" aria-label="Enviar mensagem no CHAT">
+          <textarea id="chat-input" rows="1" maxlength="2000" placeholder="Escreva uma mensagem... Use [[1d10]] ou [[Percepção]]" aria-label="Mensagem para o CHAT"></textarea>
+          <button id="chat-send" type="submit" aria-label="Enviar mensagem" title="Enviar mensagem">Enviar</button>
+        </form>
+      </section>
+
+      <section id="settings-view" class="main-tab-panel" hidden>
+        <section id="token-appearance-panel" class="panel settings-panel">
+          <div class="panel-heading">
+            <h2>Aparência dos Tokens</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="token-appearance-content" aria-expanded="true" aria-label="Esconder Aparência dos Tokens">−</button>
+            <button id="reset-token-appearance" class="reset-sheet-button" type="button" aria-label="Restaurar aparência padrão dos tokens" title="Restaurar aparência padrão dos tokens">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <div id="token-appearance-content" class="collapsible-content">
+          <nav class="settings-subtabs" aria-label="Aparência dos tokens">
+            <button class="settings-subtab active" type="button" data-token-settings-tab="bars" aria-selected="true">Barras</button>
+            <button class="settings-subtab" type="button" data-token-settings-tab="defenses" aria-selected="false">Defesas</button>
+            <button class="settings-subtab" type="button" data-token-settings-tab="names" aria-selected="false">Nomes</button>
+          </nav>
+
+          <div class="token-settings-panel" data-token-settings-panel="bars">
+            <div class="resource-color-groups">
+              <section class="resource-color-group" aria-labelledby="wounds-colors-heading">
+                <h3 id="wounds-colors-heading">Ferimentos</h3>
+                <div class="settings-color-grid resource-color-grid">
+                  <label class="settings-control settings-color-control" for="wounds-color">
+                    <span>Preenchido</span>
+                    <input id="wounds-color" type="color" value="#d9878d" aria-label="Cor preenchida da barra de Ferimentos" />
+                  </label>
+                  <label class="settings-control settings-color-control" for="wounds-background-color">
+                    <span>Fundo</span>
+                    <input id="wounds-background-color" type="color" value="#b8737b" aria-label="Cor de fundo da barra de Ferimentos" />
+                  </label>
+                </div>
+              </section>
+              <section class="resource-color-group" aria-labelledby="stress-colors-heading">
+                <h3 id="stress-colors-heading">Estresses</h3>
+                <div class="settings-color-grid resource-color-grid">
+                  <label class="settings-control settings-color-control" for="stress-color">
+                    <span>Preenchido</span>
+                    <input id="stress-color" type="color" value="#87b3e2" aria-label="Cor preenchida da barra de Estresses" />
+                  </label>
+                  <label class="settings-control settings-color-control" for="stress-background-color">
+                    <span>Fundo</span>
+                    <input id="stress-background-color" type="color" value="#648db8" aria-label="Cor de fundo da barra de Estresses" />
+                  </label>
+                </div>
+              </section>
+            </div>
+            <label class="settings-control" for="bar-size">
+              <span>Tamanho</span>
+              <select id="bar-size">
+                <option value="small">Barras Pequenas</option>
+                <option value="large">Barras Grandes</option>
+              </select>
+            </label>
+            <label class="settings-control" for="bar-placement">
+              <span>Posição</span>
+              <select id="bar-placement">
+                <option value="bottom">Barra Inferior</option>
+                <option value="top">Barra Superior</option>
+              </select>
+            </label>
+            <label class="settings-control" for="bar-alignment">
+              <span>Alinhamento do número</span>
+              <select id="bar-alignment">
+                <option value="left">Esquerda</option>
+                <option value="center">Centralizado</option>
+                <option value="right">Direita</option>
+              </select>
+            </label>
+            <div class="settings-color-grid">
+              <label class="settings-control settings-color-control" for="bar-text-color">
+                <span>Cor do número</span>
+                <input id="bar-text-color" type="color" value="#ffffff" aria-label="Cor do número das barras" />
+              </label>
+              <label class="settings-control" for="bar-font">
+                <span>Fonte do número</span>
+                <select id="bar-font" class="font-choice">
+                  <option value="sans-serif">Padrão sem serifa</option>
+                  <option value="Arial">Arial</option>
+                  <option value="serif">Serifada</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="monospace">Monoespaçada</option>
+                  <option value="Courier New">Courier New</option>
+                  <option value="cursive">Manuscrita</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="token-settings-panel" data-token-settings-panel="defenses" hidden>
+            <label class="settings-control" for="defense-size">
+              <span>Tamanho</span>
+              <select id="defense-size">
+                <option value="small">Defesas Pequenas</option>
+                <option value="large">Defesas Grandes</option>
+              </select>
+            </label>
+            <label class="settings-control" for="defense-alignment">
+              <span>Alinhamento</span>
+              <select id="defense-alignment">
+                <option value="left">Esquerda</option>
+                <option value="center">Centralizado</option>
+                <option value="right">Direita</option>
+              </select>
+            </label>
+            <div class="settings-color-grid">
+              <label class="settings-control settings-color-control" for="defense-color">
+                <span>Cor do texto</span>
+                <input id="defense-color" type="color" value="#ffffff" aria-label="Cor do texto das defesas" />
+              </label>
+              <label class="settings-control" for="defense-font">
+                <span>Fonte</span>
+                <select id="defense-font" class="font-choice">
+                  <option value="sans-serif">Padrão sem serifa</option>
+                  <option value="Arial">Arial</option>
+                  <option value="serif">Serifada</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="monospace">Monoespaçada</option>
+                  <option value="Courier New">Courier New</option>
+                  <option value="cursive">Manuscrita</option>
+                </select>
+              </label>
+            </div>
+            <div class="settings-color-grid defense-background-colors">
+              <label class="settings-control settings-color-control" for="evasion-background-color">
+                <span>Fundo de EVA</span>
+                <input id="evasion-background-color" type="color" value="#6d3438" aria-label="Cor de fundo de Evasão" />
+              </label>
+              <label class="settings-control settings-color-control" for="protection-background-color">
+                <span>Fundo de PRO</span>
+                <input id="protection-background-color" type="color" value="#315b43" aria-label="Cor de fundo de Proteção" />
+              </label>
+              <label class="settings-control settings-color-control" for="conviction-background-color">
+                <span>Fundo de CON</span>
+                <input id="conviction-background-color" type="color" value="#453d78" aria-label="Cor de fundo de Convicção" />
+              </label>
+            </div>
+          </div>
+
+          <div class="token-settings-panel" data-token-settings-panel="names" hidden>
+            <label class="settings-control" for="name-size">
+              <span>Tamanho</span>
+              <select id="name-size">
+                <option value="small">Pequeno</option>
+                <option value="large">Grande</option>
+              </select>
+            </label>
+            <label class="settings-control" for="name-alignment">
+              <span>Alinhamento</span>
+              <select id="name-alignment">
+                <option value="left">Esquerda</option>
+                <option value="center">Centralizado</option>
+                <option value="right">Direita</option>
+              </select>
+            </label>
+            <div class="settings-color-grid">
+              <label class="settings-control settings-color-control" for="name-color">
+                <span>Cor</span>
+                <input id="name-color" type="color" value="#ffffff" aria-label="Cor do nome" />
+              </label>
+              <label class="settings-control" for="name-font">
+                <span>Fonte</span>
+                <select id="name-font" class="font-choice">
+                  <option value="sans-serif">Padrão sem serifa</option>
+                  <option value="Arial">Arial</option>
+                  <option value="serif">Serifada</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="monospace">Monoespaçada</option>
+                  <option value="Courier New">Courier New</option>
+                  <option value="cursive">Manuscrita</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p id="settings-permission-note" class="settings-note">As configurações das barras são compartilhadas por todos na sala.</p>
+          </div>
+        </section>
+
+        <section id="initiative-detail-settings-panel" class="panel settings-panel" hidden>
+          <div class="panel-heading">
+            <h2>Iniciativa Detalhada</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="initiative-details-content" aria-expanded="true" aria-label="Esconder Iniciativa Detalhada">−</button>
+          </div>
+          <div id="initiative-details-content" class="collapsible-content">
+            <p class="settings-info">Personalize os dados diretamente na pré-visualização. Clique nas defesas para mostrar ou ocultar; clique em uma perícia para editar ou remover. Use o botão + ao lado das defesas para adicionar uma perícia.</p>
+            <section class="initiative-preview-section initiative-preview-section-primary" aria-labelledby="initiative-preview-title">
+              <h3 id="initiative-preview-title">Pré-visualização de um turno</h3>
+              <p>O que estiver tachado ficará oculto na iniciativa real.</p>
+              <div id="initiative-preview-card" class="initiative-preview-card"></div>
+            </section>
+          </div>
+        </section>
+
+        <dialog id="initiative-skill-dialog" class="confirm-dialog initiative-skill-dialog" aria-labelledby="initiative-skill-dialog-title">
+          <h2 id="initiative-skill-dialog-title">Adicionar perícia</h2>
+          <label class="settings-control" for="initiative-skill-choice">
+            <span>Perícia</span>
+            <select id="initiative-skill-choice"></select>
+          </label>
+          <label class="settings-checkbox-control" for="initiative-skill-passive">
+            <input id="initiative-skill-passive" type="checkbox" checked />
+            <span>Mostrar valor como perícia passiva</span>
+          </label>
+          <div class="initiative-skill-color-setting">
+            <span>Cor personalizada</span>
+            <button id="initiative-skill-color-button" type="button" class="initiative-skill-color-button" aria-label="Escolher cor personalizada para a perícia" title="Escolher cor personalizada"></button>
+            <input id="initiative-skill-color-input" class="initiative-skill-color-input" type="color" value="#a72129" aria-label="Selecionar cor personalizada para a perícia" />
+          </div>
+          <div class="confirm-dialog-actions initiative-skill-dialog-actions">
+            <button id="delete-initiative-skill" type="button" class="confirm-cancel initiative-skill-delete" hidden>Remover</button>
+            <button id="cancel-initiative-skill" type="button" class="confirm-cancel">Cancelar</button>
+            <button id="save-initiative-skill" type="button" class="confirm-destructive">Adicionar</button>
+          </div>
+        </dialog>
+
+        <dialog id="reset-token-appearance-dialog" class="confirm-dialog" aria-labelledby="reset-token-appearance-title" aria-describedby="reset-token-appearance-description">
+          <h2 id="reset-token-appearance-title">Restaurar aparência padrão?</h2>
+          <p id="reset-token-appearance-description">Todas as configurações de aparência dos tokens serão substituídas pelos valores padrão. Isso afeta todos os participantes da sala.</p>
+          <div class="confirm-dialog-actions">
+            <button id="cancel-reset-token-appearance" type="button" class="confirm-cancel">Cancelar</button>
+            <button id="confirm-reset-token-appearance" type="button" class="confirm-destructive">Restaurar padrão</button>
+          </div>
+        </dialog>
+
+        <section class="panel settings-panel theme-settings-panel">
+          <div class="panel-heading">
+            <h2>Aparência Individual</h2>
+            <button class="collapse-toggle" type="button" data-collapse-target="theme-settings-content" aria-expanded="true" aria-label="Esconder Aparência Individual">−</button>
+          </div>
+          <div id="theme-settings-content" class="collapsible-content">
+          <label class="settings-control" for="interface-theme">
+            <span>Estilo</span>
+            <select id="interface-theme">
+              <option value="owlbear">Owlbear</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </label>
+          <div id="custom-theme-controls" class="custom-theme-controls" hidden>
+            <div class="theme-controls-heading">
+              <h3>Cores</h3>
+              <button id="reset-custom-theme" class="theme-reset-button" type="button">Restaurar padrão</button>
+            </div>
+            <div class="theme-color-grid">
+              <label class="theme-color-control" for="theme-color-background"><span>Fundo</span><input id="theme-color-background" data-theme-color="background" type="color" value="#111111" /></label>
+              <label class="theme-color-control" for="theme-color-surface"><span>Painéis</span><input id="theme-color-surface" data-theme-color="surface" type="color" value="#191919" /></label>
+              <label class="theme-color-control" for="theme-color-field"><span>Campos</span><input id="theme-color-field" data-theme-color="field" type="color" value="#101010" /></label>
+              <label class="theme-color-control" for="theme-color-text"><span>Texto</span><input id="theme-color-text" data-theme-color="text" type="color" value="#f2f2f2" /></label>
+              <label class="theme-color-control" for="theme-color-muted"><span>Texto secundário</span><input id="theme-color-muted" data-theme-color="muted" type="color" value="#a7a7a7" /></label>
+              <label class="theme-color-control" for="theme-color-accent"><span>Destaque</span><input id="theme-color-accent" data-theme-color="accent" type="color" value="#a72129" /></label>
+              <label class="theme-color-control" for="theme-color-accent-text"><span>Texto do destaque</span><input id="theme-color-accent-text" data-theme-color="accentText" type="color" value="#ffffff" /></label>
+              <label class="theme-color-control" for="theme-color-heading"><span>Títulos e links</span><input id="theme-color-heading" data-theme-color="heading" type="color" value="#df6c70" /></label>
+              <label class="theme-color-control" for="theme-color-border"><span>Bordas</span><input id="theme-color-border" data-theme-color="border" type="color" value="#333333" /></label>
+              <label class="theme-color-control" for="theme-color-traits"><span>Fundo dos traços</span><input id="theme-color-traits" data-theme-color="traitBackground" type="color" value="#f08e8b" /></label>
+              <label class="theme-color-control" for="theme-color-trait-text"><span>Texto dos traços</span><input id="theme-color-trait-text" data-theme-color="traitText" type="color" value="#64181d" /></label>
+              <label class="theme-color-control" for="theme-color-interface-highlight"><span>Destaques da interface</span><input id="theme-color-interface-highlight" data-theme-color="interfaceHighlight" type="color" value="#579866" /></label>
+            </div>
+            <div class="theme-finish-controls">
+              <h3>Acabamento</h3>
+              <label class="theme-range-control" for="theme-transparency">
+                <span>Transparência <output id="theme-transparency-value" for="theme-transparency">0%</output></span>
+                <input id="theme-transparency" data-theme-setting="transparency" type="range" min="0" max="100" step="5" value="0" />
+              </label>
+              <label class="theme-range-control" for="theme-radius">
+                <span>Arredondamento <output id="theme-radius-value" for="theme-radius">8 px</output></span>
+                <input id="theme-radius" data-theme-setting="radius" type="range" min="0" max="16" step="1" value="8" />
+              </label>
+            </div>
+          </div>
+          </div>
+        </section>
+        <p id="settings-notice" class="notice" role="status" aria-live="polite">Carregando configurações…</p>
+        <p class="footnote">Versão 0.39.0 · Protótipo em desenvolvimento</p>
+      </section>
+      <dialog id="reroll-die-dialog" class="confirm-dialog" aria-labelledby="reroll-die-title" aria-describedby="reroll-die-description">
+        <h2 id="reroll-die-title">Alterar resultado do dado</h2>
+        <p id="reroll-die-description">Você pode rerrolar para gerar um novo resultado aleatório ou escolher um valor de 1 a 10. O valor anterior ficará tachado e o novo aparecerá ao lado dele para todos na sala.</p>
+        <label class="reroll-value-field" for="reroll-die-value">
+          <span>Valor escolhido</span>
+          <input id="reroll-die-value" type="number" min="1" max="10" step="1" inputmode="numeric" placeholder="1–10" />
+        </label>
+        <div class="confirm-dialog-actions">
+          <button id="cancel-reroll-die" type="button" class="confirm-cancel">Cancelar</button>
+          <button id="choose-reroll-value" type="button" class="confirm-secondary">Escolher valor</button>
+          <button id="confirm-reroll-die" type="button" class="confirm-destructive">Rerrolar</button>
+        </div>
+      </dialog>
+      <dialog id="clear-log-dialog" class="confirm-dialog" aria-labelledby="clear-log-title" aria-describedby="clear-log-description">
+          <h2 id="clear-log-title">Limpar o CHAT?</h2>
+          <p id="clear-log-description">Todas as mensagens e reações serão apagadas para os participantes da sala. Esta ação não pode ser desfeita.</p>
+          <div class="confirm-dialog-actions">
+            <button id="cancel-clear-log" type="button" class="confirm-cancel">Cancelar</button>
+            <button id="confirm-clear-log" type="button" class="confirm-destructive">Limpar CHAT</button>
+          </div>
+        </dialog>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

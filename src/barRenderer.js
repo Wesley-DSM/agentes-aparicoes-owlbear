@@ -1,0 +1,629 @@
+import OBR, { buildCurve, buildImage, buildText, isImage, Math2 } from "@owlbear-rodeo/sdk";
+
+// A&A token data. The sheet itself remains in the token's persistent metadata.
+const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
+const SHEET_KEY = `${EXTENSION_ID}/sheet`;
+const DISPLAY_SETTINGS_KEY = `${EXTENSION_ID}/display-settings`;
+const LEGACY_BAR_KEY = `${EXTENSION_ID}/bar`;
+
+// Adapted from the open-source Bubbles for Owlbear Rodeo health-bar approach.
+// The track and the filled portion are native Curve items, not remote images.
+const BAR_PADDING = 2;
+const BAR_GAP = 3;
+const BACKGROUND_OPACITY = 0.6;
+const FILL_OPACITY = 0.5;
+const LINE_HEIGHT = 1;
+const DISABLE_ATTACHMENT_BEHAVIORS = ["ROTATION", "VISIBLE", "COPY", "SCALE"];
+const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
+  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
+  woundsColor: "#d9878d",
+  stressColor: "#87b3e2",
+  woundsBackgroundColor: "#b8737b",
+  stressBackgroundColor: "#648db8",
+  barSize: "small",
+  barAlignment: "center",
+  barTextColor: "#ffffff",
+  barFont: "sans-serif",
+  defenseSize: "small",
+  defenseAlignment: "center",
+  defenseColor: "#ffffff",
+  defenseFont: "sans-serif",
+  evasionBackgroundColor: "#7198c8",
+  protectionBackgroundColor: "#70a783",
+  convictionBackgroundColor: "#ac913e",
+  nameSize: "large",
+  nameAlignment: "center",
+  nameColor: "#000000",
+  nameFont: "serif",
+  barPlacement: "bottom",
+});
+
+let sceneActive = false;
+let unsubscribeItems = null;
+let unsubscribeGrid = null;
+let unsubscribeRoomMetadata = null;
+let unsubscribeReady = null;
+let lastSignatures = new Map();
+let reconciliationQueue = Promise.resolve();
+let scheduleTimer = null;
+let forceNextReconcile = false;
+
+function finiteInteger(value, fallback) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeDisplaySettings(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value ?? "")) ? String(value).toLowerCase() : fallback;
+  const allowedFonts = ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"];
+  const normalizeFont = (value) => {
+    const legacy = { "Roboto, sans-serif": "sans-serif", "Inter, sans-serif": "sans-serif", "Arial, sans-serif": "Arial", "Georgia, serif": "Georgia" };
+    const candidate = legacy[String(value ?? "")] ?? String(value ?? "");
+    return allowedFonts.includes(candidate) ? candidate : "sans-serif";
+  };
+  return {
+    woundsColor: validColor(source.woundsColor, DEFAULT_DISPLAY_SETTINGS.woundsColor),
+    stressColor: validColor(source.stressColor, DEFAULT_DISPLAY_SETTINGS.stressColor),
+    woundsBackgroundColor: validColor(source.woundsBackgroundColor, DEFAULT_DISPLAY_SETTINGS.woundsBackgroundColor),
+    stressBackgroundColor: validColor(source.stressBackgroundColor, DEFAULT_DISPLAY_SETTINGS.stressBackgroundColor),
+    barSize: source.barSize === "large" ? "large" : "small",
+    barAlignment: ["left", "center", "right"].includes(source.barAlignment) ? source.barAlignment : DEFAULT_DISPLAY_SETTINGS.barAlignment,
+    barTextColor: validColor(source.barTextColor, DEFAULT_DISPLAY_SETTINGS.barTextColor),
+    barFont: normalizeFont(source.barFont),
+    defenseSize: source.defenseSize === "large" ? "large" : "small",
+    defenseAlignment: ["left", "center", "right"].includes(source.defenseAlignment) ? source.defenseAlignment : DEFAULT_DISPLAY_SETTINGS.defenseAlignment,
+    defenseColor: validColor(source.defenseColor, DEFAULT_DISPLAY_SETTINGS.defenseColor),
+    defenseFont: normalizeFont(source.defenseFont),
+    evasionBackgroundColor: validColor(source.evasionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.evasionBackgroundColor),
+    protectionBackgroundColor: validColor(source.protectionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.protectionBackgroundColor),
+    convictionBackgroundColor: validColor(source.convictionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.convictionBackgroundColor),
+    nameSize: source.nameSize === "large" ? "large" : "small",
+    nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
+    nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
+    nameFont: normalizeFont(source.nameFont),
+    barPlacement: source.barPlacement === "top" ? "top" : "bottom",
+  };
+}
+
+function normalizeResourceSheet(token, settings) {
+  const saved = token?.metadata?.[SHEET_KEY];
+  if (!saved || typeof saved !== "object") return null;
+
+  // Keep compatibility with data created by v0.10/v0.11. Legacy Current is
+  // migrated to Normal; Chronic starts at zero; legacy Max becomes Unconscious.
+  const woundsNormal = Math.max(0, finiteInteger(saved.resourceOneNormal ?? saved.resourceOneCurrent, 0));
+  const woundsChronic = Math.max(0, finiteInteger(saved.resourceOneChronic, 0));
+  const woundsUnconscious = Math.max(0, finiteInteger(saved.resourceOneUnconscious ?? saved.resourceOneMax, 10));
+  const stressNormal = Math.max(0, finiteInteger(saved.resourceTwoNormal ?? saved.resourceTwoCurrent, 0));
+  const stressChronic = Math.max(0, finiteInteger(saved.resourceTwoChronic, 0));
+  const stressUnconscious = Math.max(0, finiteInteger(saved.resourceTwoUnconscious ?? saved.resourceTwoMax, 10));
+  const woundsCurrent = woundsNormal + woundsChronic;
+  const stressCurrent = stressNormal + stressChronic;
+
+  return {
+    wounds: { current: woundsCurrent, max: woundsUnconscious, color: settings.woundsColor, backgroundColor: settings.woundsBackgroundColor, key: "wounds" },
+    stress: { current: stressCurrent, max: stressUnconscious, color: settings.stressColor, backgroundColor: settings.stressBackgroundColor, key: "stress" },
+    evasion: saved.evasion === "" || saved.evasion === null || saved.evasion === undefined ? null : finiteInteger(saved.evasion, null),
+    protection: saved.protection === "" || saved.protection === null || saved.protection === undefined ? null : finiteInteger(saved.protection, null),
+    conviction: saved.conviction === "" || saved.conviction === null || saved.conviction === undefined ? null : finiteInteger(saved.conviction, null),
+    hideFromPlayers: Boolean(saved.hideFromPlayers),
+    showTokenName: saved.showTokenName !== false,
+  };
+}
+
+function isCharacterImage(item) {
+  return Boolean(item && item.layer === "CHARACTER" && isImage(item));
+}
+
+function barItemIds(tokenId, resourceKey) {
+  return {
+    background: `${tokenId}-aa-${resourceKey}-background`,
+    fill: `${tokenId}-aa-${resourceKey}-fill`,
+    text: `${tokenId}-aa-${resourceKey}-text`,
+  };
+}
+
+function defenseStatsId(tokenId) {
+  return `${tokenId}-aa-defense-stats`;
+}
+
+function defenseBoxIds(tokenId, defenseKey) {
+  return {
+    background: `${tokenId}-aa-defense-${defenseKey}-background`,
+    text: `${tokenId}-aa-defense-${defenseKey}-text`,
+  };
+}
+
+function tokenNameId(tokenId) {
+  return `${tokenId}-aa-token-name`;
+}
+
+function unconsciousTintId(tokenId) {
+  return `${tokenId}-aa-unconscious-tint`;
+}
+
+function allBarIds(tokenId) {
+  return [
+    ...Object.values(barItemIds(tokenId, "wounds")),
+    ...Object.values(barItemIds(tokenId, "stress")),
+    defenseStatsId(tokenId),
+    ...["evasion", "protection", "conviction"].flatMap((key) => Object.values(defenseBoxIds(tokenId, key))),
+    tokenNameId(tokenId),
+    unconsciousTintId(tokenId),
+  ];
+}
+
+async function deleteBarOverlays(tokenId) {
+  await OBR.scene.local.deleteItems(allBarIds(tokenId));
+}
+
+function getImageDimensions(token, sceneDpi) {
+  const sourceDpi = Number(token.grid?.dpi) || sceneDpi || 1;
+  const dpiScale = sceneDpi / sourceDpi;
+  return {
+    width: Math.abs(token.image.width * dpiScale * token.scale.x),
+    height: Math.abs(token.image.height * dpiScale * token.scale.y),
+  };
+}
+
+// Matches the reference extension's center calculation, including grid offset,
+// scene DPI and token rotation. This keeps bar width tied to the actual token.
+function getImageCenter(token, sceneDpi) {
+  let center = { x: token.image.width / 2, y: token.image.height / 2 };
+  center = Math2.subtract(center, token.grid.offset);
+  center = Math2.multiply(center, sceneDpi / (Number(token.grid?.dpi) || sceneDpi || 1));
+  center = Math2.multiply(center, token.scale);
+  center = Math2.rotate(center, { x: 0, y: 0 }, token.rotation);
+  center = Math2.add(center, token.position);
+  return center;
+}
+
+function drawArc(center, radius, startAngle, arcAngle, arcPoints) {
+  arcPoints--;
+  const points = [];
+  const angleBetweenPoints = arcAngle / arcPoints;
+  let angle = startAngle;
+  for (let i = 0; i <= arcPoints; i++) {
+    points.push({
+      x: center.x + radius * Math.cos(angle),
+      y: center.y - radius * Math.sin(angle),
+    });
+    angle += angleBetweenPoints;
+  }
+  return points;
+}
+
+/**
+ * Creates the polygon points for a rounded bar, including a correctly rounded
+ * right end for partial fills. Adapted from Bubbles for Owlbear Rodeo's
+ * createRoundedRectangle helper (GPL-3.0; see THIRD_PARTY_NOTICES.md).
+ */
+function createRoundedRectangle(maxLength, height, radius, fill = 1, pointsInCorner = 10) {
+  fill = Math.max(0, Math.min(1, fill));
+  if (radius * 2 > height) radius = height * 0.5;
+
+  if (fill >= 1) {
+    return [
+      { x: radius, y: 0 },
+      { x: maxLength - radius, y: 0 },
+      ...drawArc({ x: maxLength - radius, y: radius }, radius, Math.PI * 0.5, -Math.PI * 0.5, pointsInCorner),
+      ...drawArc({ x: maxLength - radius, y: height - radius }, radius, 0, -Math.PI * 0.5, pointsInCorner),
+      { x: maxLength - radius, y: height },
+      { x: radius, y: height },
+      ...drawArc({ x: radius, y: height - radius }, radius, -Math.PI * 0.5, -Math.PI * 0.5, pointsInCorner),
+      ...drawArc({ x: radius, y: radius }, radius, -Math.PI, -Math.PI * 0.5, pointsInCorner),
+    ];
+  }
+
+  const filledLength = fill * maxLength;
+  if (filledLength <= 0) return [];
+
+  if (filledLength < radius) {
+    const referenceAngle = Math.acos(Math.max(-1, Math.min(1, (radius - filledLength) / radius)));
+    return [
+      ...drawArc({ x: radius, y: height - radius }, radius, Math.PI + referenceAngle, -referenceAngle, pointsInCorner),
+      ...drawArc({ x: radius, y: radius }, radius, Math.PI, -referenceAngle, pointsInCorner),
+    ];
+  }
+
+  const remainingLength = maxLength - filledLength;
+  if (remainingLength < radius) {
+    const referenceAngle = Math.acos(Math.max(-1, Math.min(1, (radius - remainingLength) / radius)));
+    return [
+      { x: radius, y: 0 },
+      { x: maxLength - radius, y: 0 },
+      ...drawArc({ x: maxLength - radius, y: radius }, radius, Math.PI * 0.5, -Math.PI * 0.5 + referenceAngle, pointsInCorner),
+      ...drawArc({ x: maxLength - radius, y: height - radius }, radius, -referenceAngle, -Math.PI * 0.5 + referenceAngle, pointsInCorner),
+      { x: maxLength - radius, y: height },
+      { x: radius, y: height },
+      ...drawArc({ x: radius, y: height - radius }, radius, -Math.PI * 0.5, -Math.PI * 0.5, pointsInCorner),
+      ...drawArc({ x: radius, y: radius }, radius, -Math.PI, -Math.PI * 0.5, pointsInCorner),
+    ];
+  }
+
+  return [
+    { x: radius, y: 0 },
+    { x: filledLength, y: 0 },
+    { x: filledLength, y: height },
+    { x: radius, y: height },
+    ...drawArc({ x: radius, y: height - radius }, radius, -Math.PI * 0.5, -Math.PI * 0.5, pointsInCorner),
+    ...drawArc({ x: radius, y: radius }, radius, -Math.PI, -Math.PI * 0.5, pointsInCorner),
+  ];
+}
+
+function curveBase(token, id, position, zIndex) {
+  return buildCurve()
+    .position(position)
+    .zIndex(zIndex)
+    .attachedTo(token.id)
+    .layer("ATTACHMENT")
+    .locked(true)
+    .id(id)
+    .visible(token.visible ?? true)
+    .disableAttachmentBehavior(DISABLE_ATTACHMENT_BEHAVIORS)
+    .disableHit(true)
+    .tension(0)
+    .closed(true)
+    .strokeWidth(0);
+}
+
+function makeResourceBar(token, resource, geometry, settings, showNumbers) {
+  if (!resource || Number(resource.max) <= 0) return [];
+  const { x, y, width, height } = geometry;
+  const radius = height / 2;
+  const ratio = Math.max(0, Math.min(1, resource.current / Math.max(1, resource.max)));
+  const label = `${resource.current}`;
+  const ids = barItemIds(token.id, resource.key);
+  const items = [];
+
+  const background = curveBase(token, ids.background, { x, y }, 10000)
+    .fillColor(resource.backgroundColor)
+    .fillOpacity(BACKGROUND_OPACITY)
+    .points(createRoundedRectangle(width, height, radius))
+    .build();
+  items.push(background);
+
+  if (ratio > 0) {
+    const fill = curveBase(token, ids.fill, { x, y }, 20000)
+      .fillColor(resource.color)
+      .fillOpacity(FILL_OPACITY)
+      .strokeOpacity(0)
+      .points(createRoundedRectangle(width, height, radius, ratio))
+      .build();
+    items.push(fill);
+  }
+
+  if (showNumbers) {
+    const fontFactor = 0.68;
+    const fontSize = Math.max(2.4, Math.min(height * 0.78, width / Math.max(4, label.length * fontFactor)));
+    const horizontalInset = settings.barAlignment === "center" ? 0 : Math.max(1, height * 0.4);
+    const textX = settings.barAlignment === "left" ? x + horizontalInset : x;
+    const textWidth = Math.max(1, width - horizontalInset);
+    const text = buildText()
+      .position({ x: textX, y })
+      .plainText(label)
+      .textAlign(canvasAlignment(settings.barAlignment))
+      .textAlignVertical("MIDDLE")
+      .fontSize(fontSize)
+      .fontFamily(settings.barFont)
+      .textType("PLAIN")
+      .padding(1)
+      .height(height)
+      .width(textWidth)
+      .fontWeight(600)
+      .attachedTo(token.id)
+      .fillColor(settings.barTextColor)
+      .fillOpacity(1)
+      .layer("TEXT")
+      .lineHeight(LINE_HEIGHT)
+      .locked(true)
+      .id(ids.text)
+      .visible(token.visible ?? true)
+      .disableAttachmentBehavior(DISABLE_ATTACHMENT_BEHAVIORS)
+      .disableHit(true)
+      .build();
+    items.push(text);
+  }
+
+  return items;
+}
+
+function canvasAlignment(value) {
+  if (value === "left") return "LEFT";
+  if (value === "right") return "RIGHT";
+  return "CENTER";
+}
+
+function makeDefenseStats(token, sheet, geometry, settings) {
+  const { x, y, width, height } = geometry;
+  const defs = [
+    { key: "evasion", label: "EVA", value: sheet.evasion, color: settings.evasionBackgroundColor },
+    { key: "protection", label: "PRO", value: sheet.protection, color: settings.protectionBackgroundColor },
+    { key: "conviction", label: "CON", value: sheet.conviction, color: settings.convictionBackgroundColor },
+  ];
+  if (!defs.some((item) => item.value !== null)) return [];
+
+  const boxGap = Math.max(1, Math.min(2.5, height * 0.08));
+  const boxWidth = (width - boxGap * 2) / 3;
+  const fontHeightFactor = settings.defenseSize === "large" ? 0.70 : 0.69;
+  const items = [];
+  defs.forEach((definition, index) => {
+    const boxX = x + index * (boxWidth + boxGap);
+    const ids = defenseBoxIds(token.id, definition.key);
+    const radius = height / 2;
+    const background = curveBase(token, ids.background, { x: boxX, y }, 11000 + index)
+      .fillColor(definition.color)
+      .fillOpacity(BACKGROUND_OPACITY)
+      .points(createRoundedRectangle(boxWidth, height, radius))
+      .build();
+    items.push(background);
+
+    const valueText = `${definition.label} ${definition.value === null ? "–" : definition.value}`;
+    const fontSize = Math.max(1.3, Math.min(height * fontHeightFactor, boxWidth / Math.max(4, valueText.length * 0.60)));
+    const text = buildText()
+      .position({ x: boxX, y })
+      .plainText(valueText)
+      .textAlign("CENTER")
+      .textAlignVertical("MIDDLE")
+      .fontSize(fontSize)
+      .fontFamily(settings.defenseFont)
+      .textType("PLAIN")
+      .padding(0)
+      .height(height)
+      .width(boxWidth)
+      .fontWeight(700)
+      .attachedTo(token.id)
+      .fillColor(settings.defenseColor)
+      .fillOpacity(1)
+      .layer("TEXT")
+      .lineHeight(1)
+      .locked(true)
+      .id(ids.text)
+      .visible(token.visible ?? true)
+      .disableAttachmentBehavior(DISABLE_ATTACHMENT_BEHAVIORS)
+      .disableHit(true)
+      .build();
+    items.push(text);
+  });
+  return items;
+}
+
+function makeTokenName(token, geometry, settings) {
+  const { x, y, width, height } = geometry;
+  const name = String(token.name ?? "").trim();
+  if (!name) return [];
+  const fontFactor = settings.nameSize === "large" ? 0.55 : 0.62;
+  const fontSize = Math.max(2.5, Math.min(height * (settings.nameSize === "large" ? 0.94 : 0.78), width / Math.max(1, name.length * fontFactor)));
+  const text = buildText()
+    .position({ x, y })
+    .plainText(name)
+    .textAlign(canvasAlignment(settings.nameAlignment))
+    .textAlignVertical("MIDDLE")
+    .fontSize(fontSize)
+    .fontFamily(settings.nameFont)
+    .textType("PLAIN")
+    .padding(0)
+    .height(height)
+    .width(width)
+    .fontWeight(700)
+    .attachedTo(token.id)
+    .fillColor(settings.nameColor)
+    .fillOpacity(1)
+    .layer("TEXT")
+    .lineHeight(LINE_HEIGHT)
+    .locked(true)
+    .id(tokenNameId(token.id))
+    .visible(token.visible ?? true)
+    .disableAttachmentBehavior(DISABLE_ATTACHMENT_BEHAVIORS)
+    .disableHit(true)
+    .build();
+  return [text];
+}
+
+async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
+  await deleteBarOverlays(token.id);
+  const bounds = getImageDimensions(token, sceneDpi);
+  if (!bounds.width || !bounds.height) return;
+  const center = getImageCenter(token, sceneDpi);
+  const showDetails = role === "GM" || !sheet.hideFromPlayers;
+  const hasDefenseValues = [sheet.evasion, sheet.protection, sheet.conviction].some((value) => value !== null);
+  const showDefenseStats = showDetails && hasDefenseValues;
+  const showName = sheet.showTokenName && String(token.name ?? "").trim().length > 0;
+  const resources = [sheet.wounds, sheet.stress].filter((resource) => Number(resource?.max) > 0);
+
+  const width = Math.max(1, bounds.width - BAR_PADDING * 2);
+  const x = center.x - bounds.width / 2 + BAR_PADDING;
+  const isLargeBar = settings.barSize === "large";
+  const isLargeDefense = settings.defenseSize === "large";
+  const height = isLargeBar
+    ? Math.max(8, Math.min(15, bounds.height * 0.14))
+    : Math.max(5, Math.min(10, bounds.height * 0.1));
+  const gap = Math.max(isLargeBar ? 4 : BAR_GAP, Math.min(isLargeBar ? 6 : 4, bounds.height * (isLargeBar ? 0.03 : 0.025)));
+  const statsHeight = showDefenseStats
+    ? (isLargeDefense
+      ? Math.max(9, Math.min(16, bounds.height * 0.12))
+      : Math.max(5, Math.min(9, bounds.height * 0.085)))
+    : 0;
+  const nameHeight = showName
+    ? (settings.nameSize === "large"
+      ? Math.max(10, Math.min(20, bounds.height * 0.16))
+      : Math.max(6, Math.min(10, bounds.height * 0.09)))
+    : 0;
+  const tokenTop = center.y - bounds.height / 2;
+  const tokenBottom = center.y + bounds.height / 2;
+  const resourceStackHeight = resources.length ? height * resources.length + gap * (resources.length - 1) : 0;
+  const hasShownDefenseValues = statsHeight > 0;
+  const groupHeight = resourceStackHeight + (hasShownDefenseValues ? statsHeight + (resourceStackHeight ? gap : 0) : 0);
+  let statsY = tokenBottom + gap;
+  let firstY = tokenBottom + gap;
+  let nameY = firstY + resourceStackHeight + (resourceStackHeight ? gap : 0);
+
+  if (settings.barPlacement === "top") {
+    const totalGroupHeight = groupHeight + (showName ? nameHeight + gap : 0);
+    const groupTop = tokenTop - (totalGroupHeight > 0 ? totalGroupHeight + gap : gap);
+    nameY = showName ? groupTop : groupTop;
+    firstY = groupTop + (showName ? nameHeight + gap : 0);
+    statsY = firstY + resourceStackHeight + (resourceStackHeight && hasShownDefenseValues ? gap : 0);
+  } else {
+    statsY = tokenBottom + gap;
+    firstY = statsY + (hasShownDefenseValues ? statsHeight + (resourceStackHeight ? gap : 0) : 0);
+    nameY = firstY + resourceStackHeight + ((resourceStackHeight || hasShownDefenseValues) ? gap : 0);
+  }
+
+  const items = [];
+
+  if (showName) {
+    const nameWidth = settings.nameSize === "large" ? width : width * 0.76;
+    const nameX = settings.nameAlignment === "right" ? x + width - nameWidth : settings.nameAlignment === "center" ? x + (width - nameWidth) / 2 : x;
+    items.push(...makeTokenName(token, { x: nameX, y: nameY, width: nameWidth, height: nameHeight }, settings));
+  }
+  if (showDefenseStats) {
+    const statsWidth = isLargeDefense ? width : width * 0.76;
+    const statsX = settings.defenseAlignment === "right" ? x + width - statsWidth : settings.defenseAlignment === "center" ? x + (width - statsWidth) / 2 : x;
+    items.push(...makeDefenseStats(token, sheet, { x: statsX, y: statsY, width: statsWidth, height: statsHeight }, settings));
+  }
+  let resourceY = firstY;
+  for (const resource of resources) {
+    items.push(...makeResourceBar(token, resource, { x, y: resourceY, width, height }, settings, showDetails));
+    resourceY += height + gap;
+  }
+  if (items.length) await OBR.scene.local.addItems(items);
+}
+
+function tokenSignature(token, sceneDpi, sheet, role, settings) {
+  const showDetails = role === "GM" || !sheet.hideFromPlayers;
+  return JSON.stringify({
+    sceneDpi,
+    role,
+    showDetails,
+    settings,
+    image: { width: token.image.width, height: token.image.height, url: token.image.url },
+    scale: token.scale,
+    grid: { dpi: token.grid?.dpi, offset: token.grid?.offset },
+    visible: token.visible,
+    name: token.name,
+    rotation: token.rotation,
+    wounds: sheet.wounds,
+    stress: sheet.stress,
+    evasion: sheet.evasion,
+    protection: sheet.protection,
+    conviction: sheet.conviction,
+    hideFromPlayers: sheet.hideFromPlayers,
+    showTokenName: sheet.showTokenName,
+  });
+}
+
+async function removeLegacyPersistentBars() {
+  const sceneItems = await OBR.scene.items.getItems(() => true);
+  const legacyIds = sceneItems
+    .filter((item) => typeof item.metadata?.[LEGACY_BAR_KEY]?.owner === "string")
+    .map((item) => item.id);
+  if (legacyIds.length) await OBR.scene.items.deleteItems(legacyIds);
+}
+
+
+async function reconcileBars(sceneItems, force = false) {
+  const [sceneDpi, role, roomMetadata] = await Promise.all([
+    OBR.scene.grid.getDpi(),
+    OBR.player.getRole(),
+    OBR.room.getMetadata(),
+  ]);
+  const settings = normalizeDisplaySettings(roomMetadata?.[DISPLAY_SETTINGS_KEY]);
+  const currentSignatures = new Map();
+  const supportedTokens = sceneItems.filter(isCharacterImage);
+
+  // On first load, also clear any local overlays left behind by a development
+  // reload. Only A&A's deterministic IDs are touched.
+  if (force) {
+    for (const token of supportedTokens) await deleteBarOverlays(token.id);
+  }
+
+  for (const token of supportedTokens) {
+    const sheet = normalizeResourceSheet(token, settings);
+    if (!sheet) continue;
+    const signature = tokenSignature(token, sceneDpi, sheet, role, settings);
+    currentSignatures.set(token.id, signature);
+    if (force || lastSignatures.get(token.id) !== signature) {
+      const visibleSheet = {
+        ...sheet,
+        hideFromPlayers: sheet.hideFromPlayers,
+      };
+      await renderTokenBars(token, visibleSheet, sceneDpi, role, settings);
+    }
+  }
+
+  // If a tracked token was deleted or no longer has an A&A sheet, remove its
+  // overlays as well.
+  for (const tokenId of lastSignatures.keys()) {
+    if (!currentSignatures.has(tokenId)) await deleteBarOverlays(tokenId);
+  }
+  lastSignatures = currentSignatures;
+}
+
+function scheduleReconcile(force = false) {
+  forceNextReconcile ||= force;
+  if (scheduleTimer) clearTimeout(scheduleTimer);
+  scheduleTimer = setTimeout(() => {
+    scheduleTimer = null;
+    const forceNow = forceNextReconcile;
+    forceNextReconcile = false;
+    reconciliationQueue = reconciliationQueue
+      .then(async () => {
+        if (!sceneActive) return;
+        const sceneItems = await OBR.scene.items.getItems(() => true);
+        await reconcileBars(sceneItems, forceNow);
+      })
+      .catch((error) => console.error("A&A: erro ao atualizar as barras dos tokens.", error));
+  }, 80);
+}
+
+async function startForCurrentScene() {
+  if (sceneActive) return;
+  sceneActive = true;
+  lastSignatures = new Map();
+
+  try {
+    await removeLegacyPersistentBars();
+    unsubscribeItems = OBR.scene.items.onChange(() => scheduleReconcile());
+    const sceneItems = await OBR.scene.items.getItems(() => true);
+    await reconcileBars(sceneItems, true);
+
+    // If the grid DPI changes, recalculate fixed world-unit dimensions.
+    if (OBR.scene.grid && typeof OBR.scene.grid.onChange === "function") {
+      unsubscribeGrid = OBR.scene.grid.onChange(() => scheduleReconcile(true));
+    }
+    if (OBR.room && typeof OBR.room.onMetadataChange === "function") {
+      unsubscribeRoomMetadata = OBR.room.onMetadataChange(() => scheduleReconcile());
+    }
+  } catch (error) {
+    console.error("A&A: não foi possível inicializar as barras.", error);
+  }
+}
+
+function stopForCurrentScene() {
+  sceneActive = false;
+  if (unsubscribeItems) unsubscribeItems();
+  if (unsubscribeGrid) unsubscribeGrid();
+  if (unsubscribeRoomMetadata) unsubscribeRoomMetadata();
+  unsubscribeItems = null;
+  unsubscribeGrid = null;
+  unsubscribeRoomMetadata = null;
+  lastSignatures = new Map();
+  if (scheduleTimer) clearTimeout(scheduleTimer);
+  scheduleTimer = null;
+}
+
+export function startBarOverlayService() {
+  if (unsubscribeReady) return;
+  unsubscribeReady = OBR.scene.onReadyChange((isReady) => {
+    if (isReady) {
+      void startForCurrentScene();
+    } else {
+      stopForCurrentScene();
+    }
+  });
+  void OBR.scene.isReady().then((isReady) => {
+    if (isReady) void startForCurrentScene();
+  });
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#171717" />
+    <title>Rolagem A&A</title>
+  </head>
+  <body class="roll-popup-body">
+    <main id="app" class="roll-popup-page">
+      <section id="roll-popup" class="roll-popup" aria-live="polite" aria-atomic="true">
+        <header class="roll-popup-topline">
+          <div class="roll-popup-identity">
+            <p id="roll-player" class="roll-popup-player">Rolagem pública</p>
+            <h1 id="roll-skill">Rolagem de perícia</h1>
+          </div>
+          <button id="roll-close" class="roll-popup-close" type="button" aria-label="Fechar resultado" title="Fechar">×</button>
+        </header>
+        <div class="roll-popup-subline">
+          <span id="roll-character">Personagem</span>
+          <strong id="roll-count">1d10</strong>
+        </div>
+        <div id="roll-popup-dice" class="roll-popup-dice"></div>
+        <p id="roll-summary" class="roll-popup-summary">Resultados em ordem decrescente.</p>
+        <div id="ability-traits" class="ability-traits" hidden></div>
+        <div id="inline-rolls" class="inline-rolls popup-inline-rolls" hidden></div>
+        <div id="ability-description" class="ability-description" hidden></div>
+      </section>
+    </main>
+    <dialog id="inline-reroll-dialog" class="confirm-dialog" aria-labelledby="inline-reroll-title" aria-describedby="inline-reroll-description">
+      <h2 id="inline-reroll-title">Rerrolar este dado?</h2>
+      <p id="inline-reroll-description">O resultado anterior ficará tachado e todos na sala verão a alteração.</p>
+      <div class="confirm-dialog-actions">
+        <button id="cancel-inline-reroll" class="confirm-cancel" type="button">Cancelar</button>
+        <button id="confirm-inline-reroll" class="confirm-destructive" type="button">Rerrolar</button>
+      </div>
+    </dialog>
+    <script type="module" src="./src/roll-result.js"></script>
+  </body>
+</html>
