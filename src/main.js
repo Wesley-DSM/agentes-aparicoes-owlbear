@@ -534,8 +534,6 @@ function renderDisplaySettingsControls() {
     const control = byId(id);
     if (control) control.disabled = !canEdit;
   }
-  const note = byId("settings-permission-note");
-  if (note) note.textContent = "A aparência dos tokens é compartilhada por todos na sala. Clique diretamente no elemento para abrir suas opções.";
   renderInitiativePreview();
   renderTokenAppearancePreview();
 }
@@ -619,6 +617,23 @@ function renderTokenAppearancePreview() {
     defenses.style.marginLeft = alignment === "right" ? "auto" : alignment === "center" ? "auto" : "0";
     defenses.style.marginRight = alignment === "left" ? "auto" : alignment === "center" ? "auto" : "0";
   }
+  renderAppearancePopupSwatches();
+}
+
+function renderAppearancePopupSwatches() {
+  const colorIds = [
+    "wounds-color", "wounds-background-color", "stress-color", "stress-background-color",
+    "bar-text-color", "defense-color", "evasion-background-color", "protection-background-color",
+    "conviction-background-color", "name-color",
+  ];
+  for (const id of colorIds) {
+    const input = byId(id);
+    if (!input) continue;
+    const chip = input.closest(".appearance-color-chip");
+    if (chip) chip.style.backgroundColor = input.value;
+    const half = input.closest(".appearance-bar-color-half");
+    if (half) half.style.backgroundColor = input.value;
+  }
 }
 
 const APPEARANCE_DIALOGS = Object.freeze({
@@ -626,18 +641,7 @@ const APPEARANCE_DIALOGS = Object.freeze({
   defenses: "appearance-defenses-dialog",
   names: "appearance-names-dialog",
 });
-const APPEARANCE_CONTEXTS = Object.freeze({
-  "wounds-color": "Ferimentos: cor do preenchimento.",
-  "stress-color": "Estresses: cor do preenchimento.",
-  "wounds-background-color": "Ferimentos: cor do fundo.",
-  "stress-background-color": "Estresses: cor do fundo.",
-  "bar-text-color": "Número das barras: cor e fonte compartilhadas por Ferimentos e Estresses.",
-  "bar-font": "Número das barras: fonte compartilhada por Ferimentos e Estresses.",
-  "evasion-background-color": "Evasão: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
-  "protection-background-color": "Proteção: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
-  "conviction-background-color": "Convicção: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
-  "name-color": "Nome do personagem: tamanho em relação à largura do token, fonte e cor.",
-});
+
 
 function openAppearancePopup(target) {
   if (currentRole !== "GM") return;
@@ -645,8 +649,7 @@ function openAppearancePopup(target) {
   const dialog = byId(APPEARANCE_DIALOGS[kind]);
   if (!dialog) return;
   const controlId = target.dataset.appearanceControl;
-  const context = byId(`${APPEARANCE_DIALOGS[kind].replace("-dialog", "")}-context`);
-  if (context) context.textContent = APPEARANCE_CONTEXTS[controlId] || context.textContent;
+  renderAppearancePopupSwatches();
   if (!dialog.open) dialog.showModal();
   requestAnimationFrame(() => {
     const control = byId(controlId);

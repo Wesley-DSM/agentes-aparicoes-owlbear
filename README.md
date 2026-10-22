@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Protótipo experimental 0.48.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Protótipo experimental 0.49.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
