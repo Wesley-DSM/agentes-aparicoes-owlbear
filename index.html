@@ -48,7 +48,6 @@
         <div id="initiative-list" class="initiative-list" aria-live="polite"></div>
         <div id="initiative-empty" class="initiative-empty">
           <strong>Nenhum personagem na iniciativa</strong>
-          <p>Abra a ficha de um token e pressione <strong>Iniciativa</strong> para adicioná-lo à ordem.</p>
         </div>
         <div class="round-controls">
           <button id="previous-turn" class="turn-arrow" type="button" aria-label="Turno anterior" title="Turno anterior">‹</button>
@@ -128,18 +127,12 @@
                 <div class="appearance-preview-slot" data-preview-side="above" aria-label="Elementos acima do token">
                   <button type="button" class="appearance-preview-name" data-appearance-preview-target="names" data-appearance-control="name-color" title="Personalizar nome">Nome do Personagem</button>
                   <div class="appearance-preview-bars">
-                    <div class="appearance-preview-bar appearance-preview-wounds" aria-label="Barra de Ferimentos">
-                      <span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Ferimentos</span><strong>3/10</strong>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-fill" data-appearance-preview-target="bars" data-appearance-control="wounds-color" aria-label="Mudar a cor preenchida de Ferimentos" title="Preenchimento"></button>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-number" data-appearance-preview-target="bars" data-appearance-control="bar-text-color" aria-label="Mudar a cor e a fonte do número das barras" title="Número"></button>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-background" data-appearance-preview-target="bars" data-appearance-control="wounds-background-color" aria-label="Mudar a cor de fundo de Ferimentos" title="Fundo"></button>
-                    </div>
-                    <div class="appearance-preview-bar appearance-preview-stress" aria-label="Barra de Estresses">
-                      <span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Estresses</span><strong>2/10</strong>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-fill" data-appearance-preview-target="bars" data-appearance-control="stress-color" aria-label="Mudar a cor preenchida de Estresses" title="Preenchimento"></button>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-number" data-appearance-preview-target="bars" data-appearance-control="bar-text-color" aria-label="Mudar a cor e a fonte do número das barras" title="Número"></button>
-                      <button type="button" class="appearance-preview-zone appearance-preview-zone-background" data-appearance-preview-target="bars" data-appearance-control="stress-background-color" aria-label="Mudar a cor de fundo de Estresses" title="Fundo"></button>
-                    </div>
+                    <button type="button" class="appearance-preview-bar appearance-preview-wounds" data-appearance-preview-target="bars" aria-label="Personalizar a barra de Ferimentos" title="Personalizar barras">
+                      <span class="appearance-preview-fill" aria-hidden="true"></span><strong>3</strong>
+                    </button>
+                    <button type="button" class="appearance-preview-bar appearance-preview-stress" data-appearance-preview-target="bars" aria-label="Personalizar a barra de Estresses" title="Personalizar barras">
+                      <span class="appearance-preview-fill" aria-hidden="true"></span><strong>2</strong>
+                    </button>
                   </div>
                   <div class="appearance-preview-defenses">
                     <button type="button" data-appearance-preview-target="defenses" data-appearance-control="evasion-background-color" data-preview-defense="evasion" title="Personalizar Evasão">EVA 12</button>
@@ -302,7 +295,7 @@
       </section>
       <dialog id="reroll-die-dialog" class="confirm-dialog" aria-labelledby="reroll-die-title" aria-describedby="reroll-die-description">
         <h2 id="reroll-die-title">Alterar resultado do dado</h2>
-        <p id="reroll-die-description">Você pode rerrolar para gerar um novo resultado aleatório ou escolher um valor de 1 a 10. O valor anterior ficará tachado e o novo aparecerá ao lado dele para todos na sala.</p>
+        <p id="reroll-die-description">O resultado anterior ficará tachado.</p>
         <label class="reroll-value-field" for="reroll-die-value">
           <span>Valor escolhido</span>
           <input id="reroll-die-value" type="number" min="1" max="10" step="1" inputmode="numeric" placeholder="1–10" />

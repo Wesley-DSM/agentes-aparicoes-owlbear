@@ -13,6 +13,8 @@ import {
 import { MAX_DIE_RESULTS, MAX_ROLL_HISTORY, normalizeRollHistory, ROLL_HISTORY_KEY, appendRollHistory, clearRollHistory, rerollLogDie, toggleLogReaction, updateRollHistoryEntry } from "./rollHistory.js";
 import { renderInlineRolls, resolveInlineRolls, updateInlineRollTestResult } from "./inlineRolls.js";
 import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
+import { INITIATIVE_SKILLS } from "./skills.js";
+import { DEFAULT_APPEARANCE_SETTINGS, normalizeAppearanceSettings } from "./appearanceSettings.js";
 
 const byId = (id) => document.getElementById(id);
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
@@ -66,32 +68,8 @@ let unreadMessageCount = 0;
 let originalActionIcon = new URL("icon.svg", window.location.href).href;
 const CHAT_SEEN_STORAGE_PREFIX = `${EXTENSION_ID}/chat-seen-v1`;
 const DETAILED_INITIATIVE_STORAGE_KEY = `${EXTENSION_ID}/detailed-initiative-enabled`;
-const INITIATIVE_SKILLS = Object.freeze([
-  { id: "agilidade", name: "Agilidade" }, { id: "fortitude", name: "Fortitude" }, { id: "vontade", name: "Vontade" },
-  { id: "armaduras", name: "Armaduras" }, { id: "armas-de-fogo", name: "Armas de Fogo" }, { id: "armas-simples", name: "Armas Simples" },
-  { id: "acrobacia", name: "Acrobacia" }, { id: "artes", name: "Artes" }, { id: "atletismo", name: "Atletismo" },
-  { id: "ciencias", name: "Ciências" }, { id: "cultura", name: "Cultura" }, { id: "destreza", name: "Destreza" },
-  { id: "diplomacia", name: "Diplomacia" }, { id: "empatia", name: "Empatia" }, { id: "enganacao", name: "Enganação" },
-  { id: "forca", name: "Força" }, { id: "furtividade", name: "Furtividade" }, { id: "intimidacao", name: "Intimidação" },
-  { id: "ocultismo", name: "Ocultismo" }, { id: "percepcao", name: "Percepção" }, { id: "tatica", name: "Tática" }, { id: "tecnologia", name: "Tecnologia" },
-]);
 const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
-  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
-  woundsColor: "#c84b56",
-  stressColor: "#397fc4",
-  woundsBackgroundColor: "#d9878d",
-  stressBackgroundColor: "#87b3e2",
-  barSize: "small",
-  barAlignment: "center",
-  barTextColor: "#ffffff",
-  barFont: "sans-serif",
-  defenseSize: "small",
-  defenseAlignment: "center",
-  defenseColor: "#ffffff",
-  defenseFont: "sans-serif",
-  evasionBackgroundColor: "#7198c8",
-  protectionBackgroundColor: "#70a783",
-  convictionBackgroundColor: "#ac913e",
+  ...DEFAULT_APPEARANCE_SETTINGS,
   initiativeShowWounds: true,
   initiativeWoundsMode: "bar",
   initiativeShowStress: true,
@@ -100,12 +78,6 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   initiativeShowProtection: true,
   initiativeShowConviction: true,
   initiativePassiveSkills: [],
-  nameSizePercent: 0,
-  nameAlignment: "center",
-  nameColor: "#000000",
-  nameFont: "serif",
-  barPlacement: "bottom",
-  namePlacement: "bottom",
 });
 let displaySettings = { ...DEFAULT_DISPLAY_SETTINGS };
 let settingsWriteQueue = Promise.resolve();
@@ -316,29 +288,8 @@ function normalizeConfiguredInitiativeSkills(rawSkills) {
 
 function normalizeDisplaySettings(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
-  const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value ?? "")) ? String(value).toLowerCase() : fallback;
-  const allowedFonts = ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"];
-  const normalizeFont = (value) => {
-    const legacy = { "Roboto, sans-serif": "sans-serif", "Inter, sans-serif": "sans-serif", "Arial, sans-serif": "Arial", "Georgia, serif": "Georgia" };
-    const candidate = legacy[String(value ?? "")] ?? String(value ?? "");
-    return allowedFonts.includes(candidate) ? candidate : "sans-serif";
-  };
   return {
-    woundsColor: validColor(source.woundsColor === "#d9878d" ? "#c84b56" : source.woundsColor, DEFAULT_DISPLAY_SETTINGS.woundsColor),
-    stressColor: validColor(source.stressColor === "#87b3e2" ? "#397fc4" : source.stressColor, DEFAULT_DISPLAY_SETTINGS.stressColor),
-    woundsBackgroundColor: validColor(source.woundsBackgroundColor === "#b8737b" ? "#d9878d" : source.woundsBackgroundColor, DEFAULT_DISPLAY_SETTINGS.woundsBackgroundColor),
-    stressBackgroundColor: validColor(source.stressBackgroundColor === "#648db8" ? "#87b3e2" : source.stressBackgroundColor, DEFAULT_DISPLAY_SETTINGS.stressBackgroundColor),
-    barSize: source.barSize === "large" ? "large" : "small",
-    barAlignment: ["left", "center", "right"].includes(source.barAlignment) ? source.barAlignment : DEFAULT_DISPLAY_SETTINGS.barAlignment,
-    barTextColor: validColor(source.barTextColor, DEFAULT_DISPLAY_SETTINGS.barTextColor),
-    barFont: normalizeFont(source.barFont),
-    defenseSize: source.defenseSize === "large" ? "large" : "small",
-    defenseAlignment: ["left", "center", "right"].includes(source.defenseAlignment) ? source.defenseAlignment : DEFAULT_DISPLAY_SETTINGS.defenseAlignment,
-    defenseColor: validColor(source.defenseColor, DEFAULT_DISPLAY_SETTINGS.defenseColor),
-    defenseFont: normalizeFont(source.defenseFont),
-    evasionBackgroundColor: validColor(source.evasionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.evasionBackgroundColor),
-    protectionBackgroundColor: validColor(source.protectionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.protectionBackgroundColor),
-    convictionBackgroundColor: validColor(source.convictionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.convictionBackgroundColor),
+    ...normalizeAppearanceSettings(source),
     initiativeShowWounds: true,
     initiativeWoundsMode: "bar",
     initiativeShowStress: true,
@@ -347,12 +298,6 @@ function normalizeDisplaySettings(raw) {
     initiativeShowProtection: source.initiativeShowProtection !== false && source.initiativeShowDefenses !== false,
     initiativeShowConviction: source.initiativeShowConviction !== false && source.initiativeShowDefenses !== false,
     initiativePassiveSkills: normalizeConfiguredInitiativeSkills(source.initiativePassiveSkills),
-    nameSizePercent: Number.isFinite(Number(source.nameSizePercent)) ? Math.max(0, Math.min(100, Number(source.nameSizePercent))) : (source.nameSize === "small" ? 35 : 0),
-    nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
-    nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
-    nameFont: normalizeFont(source.nameFont),
-    barPlacement: source.barPlacement === "top" ? "top" : "bottom",
-    namePlacement: source.namePlacement === "top" ? "top" : source.namePlacement === "bottom" ? "bottom" : (source.barPlacement === "top" ? "top" : "bottom"),
   };
 }
 
@@ -651,10 +596,12 @@ function openAppearancePopup(target) {
   const controlId = target.dataset.appearanceControl;
   renderAppearancePopupSwatches();
   if (!dialog.open) dialog.showModal();
-  requestAnimationFrame(() => {
-    const control = byId(controlId);
-    if (control && !control.disabled) control.focus({ preventScroll: true });
-  });
+  if (controlId) {
+    requestAnimationFrame(() => {
+      const control = byId(controlId);
+      if (control && control.type !== "color" && !control.disabled) control.focus({ preventScroll: true });
+    });
+  }
 }
 
 byId("token-appearance-preview")?.addEventListener("click", (event) => {

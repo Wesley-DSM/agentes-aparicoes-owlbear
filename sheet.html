@@ -29,18 +29,17 @@
 
       <dialog id="sheet-options-dialog" class="confirm-dialog sheet-options-dialog" aria-labelledby="sheet-options-title">
         <h2 id="sheet-options-title">Opções da ficha</h2>
-        <p>Gerencie os dados deste personagem.</p>
         <div class="sheet-options-actions">
           <button id="sheet-option-delete" class="sheet-option-button destructive-option" type="button">Apagar ficha</button>
           <button id="sheet-option-clear" class="sheet-option-button" type="button">Limpar ficha</button>
           <button id="sheet-option-import" class="sheet-option-button" type="button">Importar ficha</button>
-          <button id="sheet-option-export" class="sheet-option-button" type="button">Exportar ficha para navegador</button>
+          <button id="sheet-option-export" class="sheet-option-button" type="button">Exportar HTML</button>
         </div>
         <div class="confirm-dialog-actions"><button id="close-sheet-options" type="button" class="confirm-cancel">Fechar</button></div>
       </dialog>
       <dialog id="reset-sheet-dialog" class="confirm-dialog" aria-labelledby="reset-sheet-title" aria-describedby="reset-sheet-description">
         <h2 id="reset-sheet-title">Limpar ficha?</h2>
-        <p id="reset-sheet-description">As informações de Agentes &amp; Aparições serão removidas do token. O token permanecerá na cena, mas os dados da ficha não poderão ser recuperados. Esta ação não pode ser desfeita.</p>
+        <p id="reset-sheet-description">Os dados da ficha serão removidos deste token. Não é possível desfazer.</p>
         <div class="confirm-dialog-actions">
           <button id="cancel-reset-sheet" type="button" class="confirm-cancel">Cancelar</button>
           <button id="confirm-reset-sheet" type="button" class="confirm-destructive">Limpar ficha</button>
@@ -48,37 +47,38 @@
       </dialog>
       <dialog id="delete-token-dialog" class="confirm-dialog" aria-labelledby="delete-token-title" aria-describedby="delete-token-description">
         <h2 id="delete-token-title">Apagar ficha?</h2>
-        <p id="delete-token-description">O token do personagem será removido da cena junto com a ficha. Esta ação não pode ser desfeita.</p>
+        <p id="delete-token-description">O token e a ficha serão removidos da cena. Não é possível desfazer.</p>
         <div class="confirm-dialog-actions">
           <button id="cancel-delete-token" type="button" class="confirm-cancel">Cancelar</button>
           <button id="confirm-delete-token" type="button" class="confirm-destructive">Apagar ficha</button>
         </div>
       </dialog>
-      <dialog id="name-appearance-dialog" class="confirm-dialog settings-edit-dialog" aria-labelledby="name-appearance-title">
-        <h2 id="name-appearance-title">Aparência do nome</h2>
-        <p>Estas opções afetam somente o nome deste token. As opções iniciais acompanham as configurações da sala.</p>
-        <label class="settings-control name-size-control" for="token-name-size">
-          <span>Tamanho <output id="token-name-size-value" for="token-name-size">0%</output></span>
-          <input id="token-name-size" type="range" min="0" max="100" step="1" value="0" />
-        </label>
-        <label class="settings-control" for="token-name-alignment"><span>Alinhamento</span>
-          <select id="token-name-alignment"><option value="left">Esquerda</option><option value="center">Centralizado</option><option value="right">Direita</option></select>
-        </label>
-        <div class="settings-color-grid name-appearance-color-grid">
-          <label class="settings-control settings-color-control" for="token-name-color"><span>Cor</span><input id="token-name-color" type="color" value="#000000" /></label>
-          <label class="settings-control" for="token-name-font"><span>Fonte</span>
-            <select id="token-name-font" class="font-choice">
-              <option value="sans-serif">Padrão sem serifa</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option>
-            </select>
-          </label>
+      <dialog id="name-appearance-dialog" class="confirm-dialog settings-edit-dialog appearance-editor-dialog token-name-appearance-dialog" aria-labelledby="name-appearance-title">
+        <div class="appearance-editor-heading">
+          <h2 id="name-appearance-title">Nome do Personagem</h2>
+          <button type="button" class="appearance-dialog-close-icon" id="close-name-appearance" aria-label="Fechar">×</button>
         </div>
-        <label class="settings-checkbox-control" for="token-name-visible"><input id="token-name-visible" type="checkbox" checked /><span>Exibir o nome no token</span></label>
-        <div class="confirm-dialog-actions name-appearance-dialog-actions"><button id="reset-name-appearance" type="button" class="confirm-cancel">Voltar ao padrão da sala</button><button id="cancel-name-appearance" type="button" class="confirm-cancel">Cancelar</button><button id="save-name-appearance" type="button" class="confirm-destructive">Salvar</button></div>
+        <div class="appearance-name-size-control">
+          <span>Tamanho <output id="token-name-size-value" for="token-name-size">0%</output></span>
+          <input id="token-name-size" type="range" min="0" max="100" step="1" value="0" aria-label="Tamanho do nome" />
+        </div>
+        <div class="appearance-compact-options token-name-appearance-options">
+          <label class="appearance-color-chip appearance-text-color-chip" title="Cor do nome"><input id="token-name-color" type="color" value="#000000" aria-label="Cor do nome" /><span>Aa</span></label>
+          <select id="token-name-font" class="font-choice" aria-label="Fonte do nome">
+            <option value="sans-serif">Fonte padrão</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option>
+          </select>
+          <select id="token-name-alignment" aria-label="Alinhamento do nome"><option value="left">Nome à esquerda</option><option value="center">Nome ao centro</option><option value="right">Nome à direita</option></select>
+        </div>
+        <label class="settings-checkbox-control token-name-visibility" for="token-name-visible"><input id="token-name-visible" type="checkbox" checked /><span>Mostrar nome</span></label>
+        <div class="confirm-dialog-actions name-appearance-dialog-actions">
+          <button id="reset-name-appearance" type="button" class="confirm-cancel">Padrão da sala</button>
+          <button id="cancel-name-appearance" type="button" class="confirm-cancel">Cancelar</button>
+          <button id="save-name-appearance" type="button" class="confirm-destructive">Salvar</button>
+        </div>
       </dialog>
 
       <dialog id="resource-settings-dialog" class="confirm-dialog settings-edit-dialog" aria-labelledby="resource-settings-title">
         <h2 id="resource-settings-title">Limites de Ferimentos e Estresses</h2>
-        <p>Defina os limites deste personagem e ajuste os valores crônicos. As barras da ficha e da iniciativa detalhada usam estas configurações.</p>
         <section class="resource-config-section" aria-labelledby="wounds-config-title">
           <h3 id="wounds-config-title">Ferimentos</h3>
           <div class="resource-config-grid">
@@ -250,7 +250,7 @@
                 <h2 id="inventory-heading" class="collapsible-heading-toggle" data-collapse-target="inventory-content" role="button" tabindex="0" aria-expanded="true" aria-controls="inventory-content">Inventário</h2>
                 <input id="inventory-spaces" name="inventorySpaces" type="hidden" value="0" />
                 <div class="inventory-spaces-control">
-                  <button id="inventory-spaces-used" class="inventory-spaces-used" type="button" aria-live="polite" title="Clique para editar o limite">Ocupados: 0 / 0</button>
+                  <button id="inventory-spaces-used" class="inventory-spaces-used" type="button" aria-live="polite" title="Clique para editar o limite">0/0</button>
                   <input id="inventory-spaces-editor" class="inventory-spaces-editor" type="number" min="0" max="9999" step="1" inputmode="numeric" aria-label="Limite de espaços do inventário" title="Digite o limite e pressione Enter" hidden />
                 </div>
                 <button id="add-inventory-item" class="add-entry-button" type="button" aria-label="Adicionar item" title="Adicionar item">+</button>

@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Protótipo experimental 0.49.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.50.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -49,7 +49,7 @@ Dados antigos são migrados automaticamente: o valor atual passa para Normais, o
 
 ## Aparência dos Tokens
 
-A aba de aparência usa uma pré-visualização clicável: selecione o nome, uma defesa ou uma das três áreas de cada barra para abrir o popup correspondente. As configurações de cor preenchida, cor de fundo e número são separadas; a fonte e a cor do texto das defesas são compartilhadas. Posição dos status e posição do nome podem ser combinadas em quatro layouts, com controles de alinhamento à parte. Uma borda arredondada na prévia representa a largura de referência do token, sem desenhar um quadrado alto.
+A aba de aparência usa uma prévia clicável: selecione o nome, uma defesa ou qualquer parte de uma barra para abrir seu popup. As barras mostram apenas o valor atual. Posição dos status, posição do nome e alinhamentos usam seletores compactos; a referência arredondada indica a largura do token.
 
 ## Barras
 
@@ -140,6 +140,15 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 
 
 
+
+## Ajustes da versão 0.50.0
+
+- Removidos textos de orientação redundantes e padronizado o popup de aparência do nome do token com os controles compactos da aparência da sala.
+- A prévia usa uma única área clicável por barra e mostra somente o valor atual.
+- Centralizada a normalização das configurações visuais e a lista de perícias compartilhada pela ficha e pela iniciativa.
+- Corrigida a compatibilidade com limites de recursos salvos em fichas antigas e uniformizado o padrão da fonte do nome.
+- Removido o código antigo e não utilizado do popup de rolagem; os resultados continuam concentrados no CHAT.
+- Adicionados testes de interface, configurações, compatibilidade e sincronização das perícias offline.
 
 ## Ajustes da versão 0.47.0
 

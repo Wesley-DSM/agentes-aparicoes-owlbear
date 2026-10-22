@@ -1,5 +1,6 @@
 import OBR, { buildCurve, buildImage, buildText, isImage, Math2 } from "@owlbear-rodeo/sdk";
 import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
+import { normalizeAppearanceSettings } from "./appearanceSettings.js";
 
 // A&A token data. The sheet itself remains in the token's persistent metadata.
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
@@ -15,30 +16,6 @@ const BACKGROUND_OPACITY = 0.24;
 const FILL_OPACITY = 0.9;
 const LINE_HEIGHT = 1;
 const DISABLE_ATTACHMENT_BEHAVIORS = ["ROTATION", "VISIBLE", "COPY", "SCALE"];
-const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
-  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
-  woundsColor: "#c84b56",
-  stressColor: "#397fc4",
-  woundsBackgroundColor: "#d9878d",
-  stressBackgroundColor: "#87b3e2",
-  barSize: "small",
-  barAlignment: "center",
-  barTextColor: "#ffffff",
-  barFont: "sans-serif",
-  defenseSize: "small",
-  defenseAlignment: "center",
-  defenseColor: "#ffffff",
-  defenseFont: "sans-serif",
-  evasionBackgroundColor: "#7198c8",
-  protectionBackgroundColor: "#70a783",
-  convictionBackgroundColor: "#ac913e",
-  nameSizePercent: 0,
-  nameAlignment: "center",
-  nameColor: "#000000",
-  nameFont: "serif",
-  barPlacement: "bottom",
-  namePlacement: "bottom",
-});
 
 let sceneActive = false;
 let unsubscribeItems = null;
@@ -55,39 +32,7 @@ function finiteInteger(value, fallback) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function normalizeDisplaySettings(raw) {
-  const source = raw && typeof raw === "object" ? raw : {};
-  const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value ?? "")) ? String(value).toLowerCase() : fallback;
-  const allowedFonts = ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"];
-  const normalizeFont = (value) => {
-    const legacy = { "Roboto, sans-serif": "sans-serif", "Inter, sans-serif": "sans-serif", "Arial, sans-serif": "Arial", "Georgia, serif": "Georgia" };
-    const candidate = legacy[String(value ?? "")] ?? String(value ?? "");
-    return allowedFonts.includes(candidate) ? candidate : "sans-serif";
-  };
-  return {
-    woundsColor: validColor(source.woundsColor === "#d9878d" ? "#c84b56" : source.woundsColor, DEFAULT_DISPLAY_SETTINGS.woundsColor),
-    stressColor: validColor(source.stressColor === "#87b3e2" ? "#397fc4" : source.stressColor, DEFAULT_DISPLAY_SETTINGS.stressColor),
-    woundsBackgroundColor: validColor(source.woundsBackgroundColor === "#b8737b" ? "#d9878d" : source.woundsBackgroundColor, DEFAULT_DISPLAY_SETTINGS.woundsBackgroundColor),
-    stressBackgroundColor: validColor(source.stressBackgroundColor === "#648db8" ? "#87b3e2" : source.stressBackgroundColor, DEFAULT_DISPLAY_SETTINGS.stressBackgroundColor),
-    barSize: source.barSize === "large" ? "large" : "small",
-    barAlignment: ["left", "center", "right"].includes(source.barAlignment) ? source.barAlignment : DEFAULT_DISPLAY_SETTINGS.barAlignment,
-    barTextColor: validColor(source.barTextColor, DEFAULT_DISPLAY_SETTINGS.barTextColor),
-    barFont: normalizeFont(source.barFont),
-    defenseSize: source.defenseSize === "large" ? "large" : "small",
-    defenseAlignment: ["left", "center", "right"].includes(source.defenseAlignment) ? source.defenseAlignment : DEFAULT_DISPLAY_SETTINGS.defenseAlignment,
-    defenseColor: validColor(source.defenseColor, DEFAULT_DISPLAY_SETTINGS.defenseColor),
-    defenseFont: normalizeFont(source.defenseFont),
-    evasionBackgroundColor: validColor(source.evasionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.evasionBackgroundColor),
-    protectionBackgroundColor: validColor(source.protectionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.protectionBackgroundColor),
-    convictionBackgroundColor: validColor(source.convictionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.convictionBackgroundColor),
-    nameSizePercent: Number.isFinite(Number(source.nameSizePercent)) ? Math.max(0, Math.min(100, Number(source.nameSizePercent))) : (source.nameSize === "small" ? 35 : 0),
-    nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
-    nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
-    nameFont: normalizeFont(source.nameFont),
-    barPlacement: source.barPlacement === "top" ? "top" : "bottom",
-    namePlacement: source.namePlacement === "top" ? "top" : source.namePlacement === "bottom" ? "bottom" : (source.barPlacement === "top" ? "top" : "bottom"),
-  };
-}
+const normalizeDisplaySettings = normalizeAppearanceSettings;
 
 function normalizeResourceSheet(token, settings) {
   const saved = token?.metadata?.[SHEET_KEY];
@@ -98,12 +43,12 @@ function normalizeResourceSheet(token, settings) {
   const woundsNormal = Math.max(0, finiteInteger(saved.resourceOneNormal ?? saved.resourceOneCurrent, 0));
   const woundsChronic = Math.max(0, finiteInteger(saved.resourceOneChronic, 0));
   const woundsHurtAt = Math.max(1, finiteInteger(saved.resourceOneHurtAt, 5));
-  const woundsUnconscious = Math.max(1, finiteInteger(saved.resourceOneUnconscious ?? saved.resourceOneUnconsciousAt, 10));
+  const woundsUnconscious = Math.max(1, finiteInteger(saved.resourceOneUnconscious ?? saved.resourceOneUnconsciousAt ?? saved.resourceOneMax, 10));
   const woundsDeadAt = Math.max(woundsUnconscious + 1, finiteInteger(saved.resourceOneDeadAt, 20));
   const stressNormal = Math.max(0, finiteInteger(saved.resourceTwoNormal ?? saved.resourceTwoCurrent, 0));
   const stressChronic = Math.max(0, finiteInteger(saved.resourceTwoChronic, 0));
   const stressStressedAt = Math.max(1, finiteInteger(saved.resourceTwoStressedAt, 5));
-  const stressUnconscious = Math.max(1, finiteInteger(saved.resourceTwoUnconscious ?? saved.resourceTwoLosingMindAt ?? saved.resourceTwoUnconsciousAt, 10));
+  const stressUnconscious = Math.max(1, finiteInteger(saved.resourceTwoUnconscious ?? saved.resourceTwoLosingMindAt ?? saved.resourceTwoUnconsciousAt ?? saved.resourceTwoMax, 10));
   const stressInsaneAt = Math.max(stressUnconscious + 1, finiteInteger(saved.resourceTwoInsaneAt, 20));
   const woundsCurrent = woundsNormal + woundsChronic;
   const stressCurrent = stressNormal + stressChronic;

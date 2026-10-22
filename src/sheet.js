@@ -5,6 +5,7 @@ import { readInitiativeState, toggleTokenInitiative } from "./initiative.js";
 import { appendRollHistory } from "./rollHistory.js";
 import { resolveInlineRolls } from "./inlineRolls.js";
 import { createThemeController } from "./theme.js";
+import { ALL_SKILLS, SKILL_GROUPS } from "./skills.js";
 import sheetTemplate from "../sheet.html?raw";
 import sheetStyles from "./style.css?inline";
 import standaloneRuntime from "./standalone-runtime.js?raw";
@@ -50,49 +51,6 @@ const selectedTokenImage = el("selected-token-image");
 const selectedTokenFallback = el("selected-token-fallback");
 const themeController = createThemeController();
 
-const SKILL_GROUPS = [
-  {
-    name: "Resistências",
-    skills: [
-      { id: "agilidade", name: "Agilidade" },
-      { id: "fortitude", name: "Fortitude" },
-      { id: "vontade", name: "Vontade" },
-    ],
-  },
-  {
-    name: "Equipamentos",
-    skills: [
-      { id: "armaduras", name: "Armaduras" },
-      { id: "armas-de-fogo", name: "Armas de Fogo" },
-      { id: "armas-simples", name: "Armas Simples" },
-    ],
-  },
-  {
-    name: "Especialidades",
-    skills: [
-      { id: "acrobacia", name: "Acrobacia" },
-      { id: "artes", name: "Artes" },
-      { id: "atletismo", name: "Atletismo" },
-      { id: "ciencias", name: "Ciências" },
-      { id: "cultura", name: "Cultura" },
-      { id: "destreza", name: "Destreza" },
-      { id: "diplomacia", name: "Diplomacia" },
-      { id: "empatia", name: "Empatia" },
-      { id: "enganacao", name: "Enganação" },
-      { id: "forca", name: "Força" },
-      { id: "furtividade", name: "Furtividade" },
-      { id: "intimidacao", name: "Intimidação" },
-      { id: "ocultismo", name: "Ocultismo" },
-      { id: "percepcao", name: "Percepção" },
-      { id: "tatica", name: "Tática" },
-      { id: "tecnologia", name: "Tecnologia" },
-    ],
-  },
-];
-
-const ALL_SKILLS = SKILL_GROUPS.flatMap((group) =>
-  group.skills.map((skill) => ({ ...skill, group: group.name })),
-);
 const ROMAN_BY_RANK = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
 
 let activeTokenId = null;
@@ -207,7 +165,7 @@ function normalizeSheet(sheet, fallbackName = "") {
     nameSizePercent: Math.max(0, Math.min(100, Number.parseInt(nameAppearanceRaw.nameSizePercent, 10) || 0)),
     nameAlignment: ["left", "center", "right"].includes(nameAppearanceRaw.nameAlignment) ? nameAppearanceRaw.nameAlignment : "center",
     nameColor: /^#[0-9a-f]{6}$/i.test(String(nameAppearanceRaw.nameColor ?? "")) ? String(nameAppearanceRaw.nameColor).toLowerCase() : "#000000",
-    nameFont: ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"].includes(nameAppearanceRaw.nameFont) ? nameAppearanceRaw.nameFont : "serif",
+    nameFont: ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"].includes(nameAppearanceRaw.nameFont) ? nameAppearanceRaw.nameFont : "sans-serif",
   } : null;
   return {
     characterName: String(sheet.characterName ?? fallbackName).trim() || fallbackName || "Personagem",
@@ -859,7 +817,7 @@ function getNameAppearanceFromRoomSettings(roomSettings = {}) {
     nameSizePercent: Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, rawPercent)) : (roomSettings.nameSize === "small" ? 35 : 0),
     nameAlignment: ["left", "center", "right"].includes(roomSettings.nameAlignment) ? roomSettings.nameAlignment : "center",
     nameColor: /^#[0-9a-f]{6}$/i.test(String(roomSettings.nameColor ?? "")) ? roomSettings.nameColor : "#000000",
-    nameFont: ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"].includes(roomSettings.nameFont) ? roomSettings.nameFont : "serif",
+    nameFont: ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"].includes(roomSettings.nameFont) ? roomSettings.nameFont : "sans-serif",
   };
 }
 
@@ -1594,6 +1552,7 @@ visibilityButton.addEventListener("click", () => void togglePlayerVisibility());
 tokenNameButton.addEventListener("click", () => void openNameAppearanceDialog());
 initiativeButton.addEventListener("click", () => void toggleActiveTokenInitiative());
 el("cancel-name-appearance").addEventListener("click", () => nameAppearanceDialog.close());
+el("close-name-appearance")?.addEventListener("click", () => nameAppearanceDialog.close());
 el("save-name-appearance").addEventListener("click", () => void saveNameAppearance());
 el("reset-name-appearance")?.addEventListener("click", () => void resetNameAppearanceToRoom());
 el("token-name-size").addEventListener("input", () => { el("token-name-size-value").textContent = `${el("token-name-size").value}%`; });
