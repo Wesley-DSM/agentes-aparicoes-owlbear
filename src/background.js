@@ -1,6 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { startBarOverlayService } from "./barRenderer.js";
-import { isSkillRoll, isAbilityUse, openRollResultWindow, ROLL_CHANNEL, ABILITY_CHANNEL, EXTENSION_ID } from "./rollWindow.js";
+import { isSkillRoll, isAbilityUse, ROLL_CHANNEL, ABILITY_CHANNEL, EXTENSION_ID } from "./rollWindow.js";
+import { appendRollHistory } from "./rollHistory.js";
 
 
 function smallestViewportDimension(values, fallback) {
@@ -59,19 +60,19 @@ OBR.onReady(async () => {
       }, 220);
     });
 
-    // Every installed client listens for public skill rolls and opens its own
-    // result window, so everyone sees the same dice in the same order.
+    // The sender writes its own event; all other clients append remote events
+    // to the room's shared CHAT instead of opening an extra result popover.
     OBR.broadcast.onMessage(ROLL_CHANNEL, (event) => {
       if (!isSkillRoll(event.data)) return;
-      void openRollResultWindow(event.data).catch((error) => {
-        console.error("A&A: não foi possível exibir a rolagem recebida.", error);
+      void appendRollHistory(event.data).catch((error) => {
+        console.error("A&A: não foi possível registrar a rolagem recebida no CHAT.", error);
       });
     });
 
     OBR.broadcast.onMessage(ABILITY_CHANNEL, (event) => {
       if (!isAbilityUse(event.data)) return;
-      void openRollResultWindow(event.data).catch((error) => {
-        console.error("A&A: não foi possível exibir a habilidade recebida.", error);
+      void appendRollHistory(event.data).catch((error) => {
+        console.error("A&A: não foi possível registrar a habilidade recebida no CHAT.", error);
       });
     });
 

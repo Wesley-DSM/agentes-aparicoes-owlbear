@@ -61,12 +61,17 @@
       occupation: String(raw.occupation ?? "").trim().slice(0, 100), evolution: nonNegative(raw.evolution, 1, 100),
       resourceOneNormal: nonNegative(raw.resourceOneNormal ?? raw.resourceOneCurrent, 0),
       resourceOneChronic: nonNegative(raw.resourceOneChronic, 0),
+      resourceOneWounded: nonNegative(raw.resourceOneWounded, 5),
       resourceOneUnconscious: nonNegative(raw.resourceOneUnconscious ?? raw.resourceOneMax, 10),
+      resourceOneDead: nonNegative(raw.resourceOneDead, 20),
       resourceTwoNormal: nonNegative(raw.resourceTwoNormal ?? raw.resourceTwoCurrent, 0),
       resourceTwoChronic: nonNegative(raw.resourceTwoChronic, 0),
-      resourceTwoUnconscious: nonNegative(raw.resourceTwoUnconscious ?? raw.resourceTwoMax, 10),
+      resourceTwoStressed: nonNegative(raw.resourceTwoStressed, 5),
+      resourceTwoEnlouquecendo: nonNegative(raw.resourceTwoEnlouquecendo ?? raw.resourceTwoUnconscious ?? raw.resourceTwoMax, 10),
+      resourceTwoInsano: nonNegative(raw.resourceTwoInsano, 20),
       evasion: optionalNumber(raw.evasion), protection: optionalNumber(raw.protection), conviction: optionalNumber(raw.conviction),
       hideFromPlayers: Boolean(raw.hideFromPlayers), showTokenName: raw.showTokenName !== false,
+      tokenNameAppearance: raw.tokenNameAppearance && typeof raw.tokenNameAppearance === "object" ? raw.tokenNameAppearance : null,
       skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankValue(skillsMap.get(skill.id)?.rank ?? 1) })),
       inventorySpaces: nonNegative(raw.inventorySpaces ?? raw.inventoryMaxSpaces, 0),
       inventory: Array.isArray(raw.inventory) ? raw.inventory.filter((item) => item && typeof item === "object").map((item) => ({
@@ -289,13 +294,17 @@
       "character-name": sheet.characterName, "character-class": sheet.characterClass, "character-organization": sheet.organization,
       "character-occupation": sheet.occupation, "character-evolution": sheet.evolution,
       "resource-one-normal": sheet.resourceOneNormal, "resource-one-chronic": sheet.resourceOneChronic,
-      "resource-one-unconscious": sheet.resourceOneUnconscious, "resource-two-normal": sheet.resourceTwoNormal,
-      "resource-two-chronic": sheet.resourceTwoChronic, "resource-two-unconscious": sheet.resourceTwoUnconscious,
+      "resource-one-wounded": sheet.resourceOneWounded, "resource-one-unconscious": sheet.resourceOneUnconscious, "resource-one-dead": sheet.resourceOneDead,
+      "resource-two-normal": sheet.resourceTwoNormal, "resource-two-chronic": sheet.resourceTwoChronic,
+      "resource-two-stressed": sheet.resourceTwoStressed, "resource-two-enlouquecendo": sheet.resourceTwoEnlouquecendo, "resource-two-insano": sheet.resourceTwoInsano,
       "character-evasion": sheet.evasion, "character-protection": sheet.protection, "character-conviction": sheet.conviction,
       "inventory-spaces": sheet.inventorySpaces, "character-history": sheet.history,
     };
     for (const [id, value] of Object.entries(values)) if (byId(id)) byId(id).value = value ?? "";
     renderSkills(sheet.skills); renderEntryLists(sheet); attachStaticEditors();
+    updateResourceBars();
+    const tokenAppearanceButton = byId("toggle-token-name");
+    if (tokenAppearanceButton) { tokenAppearanceButton.hidden = true; tokenAppearanceButton.disabled = true; tokenAppearanceButton.title = "Aparência do token disponível na extensão do Owlbear"; }
     byId("selected-name").textContent = sheet.characterName;
     document.title = `${sheet.characterName} | Ficha A&A`;
     document.documentElement.dataset.aaTheme = "owlbear";
@@ -320,10 +329,12 @@
       characterClass: byId("character-class").value, organization: byId("character-organization").value,
       occupation: byId("character-occupation").value.trim(), evolution: nonNegative(byId("character-evolution").value, 1, 100),
       resourceOneNormal: nonNegative(byId("resource-one-normal").value), resourceOneChronic: nonNegative(byId("resource-one-chronic").value),
-      resourceOneUnconscious: nonNegative(byId("resource-one-unconscious").value, 10), resourceTwoNormal: nonNegative(byId("resource-two-normal").value),
-      resourceTwoChronic: nonNegative(byId("resource-two-chronic").value), resourceTwoUnconscious: nonNegative(byId("resource-two-unconscious").value, 10),
+      resourceOneWounded: nonNegative(byId("resource-one-wounded").value, 5), resourceOneUnconscious: nonNegative(byId("resource-one-unconscious").value, 10), resourceOneDead: nonNegative(byId("resource-one-dead").value, 20),
+      resourceTwoNormal: nonNegative(byId("resource-two-normal").value), resourceTwoChronic: nonNegative(byId("resource-two-chronic").value),
+      resourceTwoStressed: nonNegative(byId("resource-two-stressed").value, 5), resourceTwoEnlouquecendo: nonNegative(byId("resource-two-enlouquecendo").value, 10), resourceTwoInsano: nonNegative(byId("resource-two-insano").value, 20),
       evasion: optionalNumber(byId("character-evasion").value), protection: optionalNumber(byId("character-protection").value), conviction: optionalNumber(byId("character-conviction").value),
       hideFromPlayers: Boolean(originalPayload?.sheet?.hideFromPlayers), showTokenName: originalPayload?.sheet?.showTokenName !== false,
+      tokenNameAppearance: originalPayload?.sheet?.tokenNameAppearance ?? null,
       skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankById.get(skill.id) ?? 1 })),
       inventorySpaces: nonNegative(byId("inventory-spaces").value),
       inventory: readList(byId("inventory-list"), "[data-inventory-card]", (card) => ({
@@ -365,6 +376,61 @@
     return JSON.stringify(value, null, 2).replaceAll("&", "\\u0026").replaceAll("<", "\\u003c").replaceAll(">", "\\u003e");
   }
 
+  function updateResourceBars() {
+    const definitions = [
+      { normal: "resource-one-normal", chronic: "resource-one-chronic", max: "resource-one-dead", output: "resource-one-value", fill: "resource-one-fill" },
+      { normal: "resource-two-normal", chronic: "resource-two-chronic", max: "resource-two-insano", output: "resource-two-value", fill: "resource-two-fill" },
+    ];
+    for (const definition of definitions) {
+      const current = nonNegative(byId(definition.normal)?.value) + nonNegative(byId(definition.chronic)?.value);
+      const maximum = nonNegative(byId(definition.max)?.value, 20);
+      if (byId(definition.output)) byId(definition.output).textContent = `${current}/${maximum}`;
+      if (byId(definition.fill)) byId(definition.fill).style.width = `${maximum > 0 ? Math.min(100, current / maximum * 100) : 0}%`;
+    }
+  }
+
+  let editingResourceType = "wounds";
+  function openResourceSettings(type) {
+    editingResourceType = type === "stress" ? "stress" : "wounds";
+    const wounds = editingResourceType === "wounds";
+    const labels = wounds ? ["Machucado", "Inconsciente", "Morto"] : ["Estressado", "Enlouquecendo", "Insano"];
+    const ids = wounds
+      ? { low: "resource-one-wounded", mid: "resource-one-unconscious", high: "resource-one-dead", chronic: "resource-one-chronic" }
+      : { low: "resource-two-stressed", mid: "resource-two-enlouquecendo", high: "resource-two-insano", chronic: "resource-two-chronic" };
+    byId("resource-settings-title").textContent = wounds ? "Configurar Ferimentos" : "Configurar Estresses";
+    byId("resource-settings-low-label").textContent = labels[0];
+    byId("resource-settings-mid-label").textContent = labels[1];
+    byId("resource-settings-high-label").textContent = labels[2];
+    byId("resource-settings-chronic-label").textContent = wounds ? "Ferimentos crônicos" : "Estresses crônicos";
+    byId("resource-settings-description").textContent = "Defina os limites e ajuste a quantidade de recursos crônicos.";
+    for (const [dialogId, fieldId] of [["resource-settings-low", ids.low], ["resource-settings-mid", ids.mid], ["resource-settings-high", ids.high], ["resource-settings-chronic", ids.chronic]]) byId(dialogId).value = byId(fieldId).value || "0";
+    const dialog = byId("resource-settings-dialog");
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+
+  function saveResourceSettings() {
+    const wounds = editingResourceType === "wounds";
+    const ids = wounds
+      ? { low: "resource-one-wounded", mid: "resource-one-unconscious", high: "resource-one-dead", chronic: "resource-one-chronic" }
+      : { low: "resource-two-stressed", mid: "resource-two-enlouquecendo", high: "resource-two-insano", chronic: "resource-two-chronic" };
+    const thresholds = [nonNegative(byId("resource-settings-low").value, 5), nonNegative(byId("resource-settings-mid").value, 10), nonNegative(byId("resource-settings-high").value, 20)].sort((a, b) => a - b);
+    byId(ids.low).value = String(thresholds[0]); byId(ids.mid).value = String(thresholds[1]); byId(ids.high).value = String(thresholds[2]);
+    byId(ids.chronic).value = String(nonNegative(byId("resource-settings-chronic").value));
+    byId("resource-settings-dialog").close();
+    updateResourceBars();
+    setNotice("Limites atualizados. Salve a ficha para manter as alterações.", "info");
+  }
+
+  function adjustResource(type, delta) {
+    const normalId = type === "stress" ? "resource-two-normal" : "resource-one-normal";
+    const chronicId = type === "stress" ? "resource-two-chronic" : "resource-one-chronic";
+    const normal = nonNegative(byId(normalId).value); const chronic = nonNegative(byId(chronicId).value);
+    if (delta > 0) byId(normalId).value = String(normal + delta);
+    else { const removeNormal = Math.min(normal, Math.abs(delta)); byId(normalId).value = String(normal - removeNormal); byId(chronicId).value = String(Math.max(0, chronic - Math.max(0, Math.abs(delta) - removeNormal))); }
+    updateResourceBars();
+    setNotice("Recurso atualizado. Salve a ficha para manter as alterações.", "info");
+  }
+
   function saveHtml() {
     try {
       const sheet = readSheetFromForm();
@@ -390,6 +456,12 @@
     if (!target) return;
     const save = target.closest("#save-standalone-sheet");
     if (save) { event.preventDefault(); saveHtml(); return; }
+    const resourceSettingButton = target.closest("[data-resource-settings]");
+    if (resourceSettingButton) { openResourceSettings(resourceSettingButton.dataset.resourceSettings); return; }
+    const resourceAdjustButton = target.closest("[data-resource-adjust]");
+    if (resourceAdjustButton) { adjustResource(resourceAdjustButton.dataset.resourceAdjust, Number(resourceAdjustButton.dataset.resourceDelta)); return; }
+    if (target.closest("#save-resource-settings")) { saveResourceSettings(); return; }
+    if (target.closest("#cancel-resource-settings")) { byId("resource-settings-dialog")?.close(); return; }
     const tab = target.closest("[data-sheet-tab]");
     if (tab) {
       const id = tab.dataset.sheetTab;
@@ -403,7 +475,11 @@
     if (collapse) {
       const panel = byId(collapse.dataset.collapseTarget); if (!panel) return;
       const expanded = collapse.getAttribute("aria-expanded") !== "false";
-      panel.hidden = expanded; collapse.setAttribute("aria-expanded", String(!expanded)); collapse.textContent = expanded ? "+" : "−"; return;
+      panel.hidden = expanded;
+      collapse.setAttribute("aria-expanded", String(!expanded));
+      if (collapse.classList.contains("section-heading-toggle")) collapse.classList.toggle("is-collapsed", expanded);
+      else collapse.textContent = expanded ? "+" : "−";
+      return;
     }
     const preview = target.closest(".formatted-editor[data-replace-mode=" + '"true"' + "] .markdown-preview");
     if (preview) {
@@ -461,6 +537,13 @@
   });
 
   form.addEventListener("submit", (event) => event.preventDefault());
+  document.addEventListener("keydown", (event) => {
+    const heading = event.target.closest?.(".section-heading-toggle[data-collapse-target]");
+    if (!heading || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    heading.click();
+  });
+
   form.addEventListener("input", (event) => {
     const field = event.target;
     if (field?.id === "character-name") { byId("selected-name").textContent = field.value.trim() || "Personagem"; document.title = `${field.value.trim() || "Personagem"} | Ficha A&A`; }

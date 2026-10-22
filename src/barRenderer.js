@@ -12,14 +12,16 @@ const BAR_PADDING = 2;
 const BAR_GAP = 3;
 const BACKGROUND_OPACITY = 0.6;
 const FILL_OPACITY = 0.5;
+const RESOURCE_BACKGROUND_OPACITY = 0.25;
+const RESOURCE_FILL_OPACITY = 0.88;
 const LINE_HEIGHT = 1;
 const DISABLE_ATTACHMENT_BEHAVIORS = ["ROTATION", "VISIBLE", "COPY", "SCALE"];
 const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
-  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
-  woundsColor: "#d9878d",
-  stressColor: "#87b3e2",
-  woundsBackgroundColor: "#b8737b",
-  stressBackgroundColor: "#648db8",
+  // Stronger filled colors sit over a lighter, translucent track.
+  woundsColor: "#bf4652",
+  stressColor: "#347fbd",
+  woundsBackgroundColor: "#d9878d",
+  stressBackgroundColor: "#87b3e2",
   barSize: "small",
   barAlignment: "center",
   barTextColor: "#ffffff",
@@ -31,7 +33,7 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   evasionBackgroundColor: "#7198c8",
   protectionBackgroundColor: "#70a783",
   convictionBackgroundColor: "#ac913e",
-  nameSize: "large",
+  nameSize: 0,
   nameAlignment: "center",
   nameColor: "#000000",
   nameFont: "serif",
@@ -78,7 +80,9 @@ function normalizeDisplaySettings(raw) {
     evasionBackgroundColor: validColor(source.evasionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.evasionBackgroundColor),
     protectionBackgroundColor: validColor(source.protectionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.protectionBackgroundColor),
     convictionBackgroundColor: validColor(source.convictionBackgroundColor, DEFAULT_DISPLAY_SETTINGS.convictionBackgroundColor),
-    nameSize: source.nameSize === "large" ? "large" : "small",
+    nameSize: Number.isFinite(Number(source.nameSize))
+      ? Math.max(0, Math.min(100, Math.round(Number(source.nameSize))))
+      : 0,
     nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
     nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
     nameFont: normalizeFont(source.nameFont),
@@ -95,20 +99,41 @@ function normalizeResourceSheet(token, settings) {
   const woundsNormal = Math.max(0, finiteInteger(saved.resourceOneNormal ?? saved.resourceOneCurrent, 0));
   const woundsChronic = Math.max(0, finiteInteger(saved.resourceOneChronic, 0));
   const woundsUnconscious = Math.max(0, finiteInteger(saved.resourceOneUnconscious ?? saved.resourceOneMax, 10));
+  const woundsDead = Math.max(0, finiteInteger(saved.resourceOneDead, 20));
   const stressNormal = Math.max(0, finiteInteger(saved.resourceTwoNormal ?? saved.resourceTwoCurrent, 0));
   const stressChronic = Math.max(0, finiteInteger(saved.resourceTwoChronic, 0));
-  const stressUnconscious = Math.max(0, finiteInteger(saved.resourceTwoUnconscious ?? saved.resourceTwoMax, 10));
+  const stressEnlouquecendo = Math.max(0, finiteInteger(saved.resourceTwoEnlouquecendo ?? saved.resourceTwoUnconscious ?? saved.resourceTwoMax, 10));
+  const stressInsano = Math.max(0, finiteInteger(saved.resourceTwoInsano, 20));
   const woundsCurrent = woundsNormal + woundsChronic;
   const stressCurrent = stressNormal + stressChronic;
 
+  const customName = saved.tokenNameAppearance && typeof saved.tokenNameAppearance === "object" ? saved.tokenNameAppearance : null;
+  const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value ?? "")) ? String(value).toLowerCase() : fallback;
+  const validFonts = ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"];
+  const nameAppearance = customName ? {
+    sizePercent: Math.max(0, Math.min(100, finiteInteger(customName.sizePercent ?? customName.nameSize, 0))),
+    alignment: ["left", "center", "right"].includes(customName.alignment ?? customName.nameAlignment) ? (customName.alignment ?? customName.nameAlignment) : settings.nameAlignment,
+    color: validColor(customName.color ?? customName.nameColor, settings.nameColor),
+    font: validFonts.includes(customName.font ?? customName.nameFont) ? (customName.font ?? customName.nameFont) : settings.nameFont,
+    hidden: Boolean(customName.hidden),
+  } : {
+    sizePercent: settings.nameSize,
+    alignment: settings.nameAlignment,
+    color: settings.nameColor,
+    font: settings.nameFont,
+    hidden: saved.showTokenName === false,
+  };
+
   return {
-    wounds: { current: woundsCurrent, max: woundsUnconscious, color: settings.woundsColor, backgroundColor: settings.woundsBackgroundColor, key: "wounds" },
-    stress: { current: stressCurrent, max: stressUnconscious, color: settings.stressColor, backgroundColor: settings.stressBackgroundColor, key: "stress" },
+    wounds: { current: woundsCurrent, max: woundsDead, color: settings.woundsColor, backgroundColor: settings.woundsBackgroundColor, key: "wounds" },
+    stress: { current: stressCurrent, max: stressInsano, color: settings.stressColor, backgroundColor: settings.stressBackgroundColor, key: "stress" },
+    resourceThresholds: { woundsWounded: Math.max(0, finiteInteger(saved.resourceOneWounded, 5)), woundsUnconscious, woundsDead, stressStressed: Math.max(0, finiteInteger(saved.resourceTwoStressed, 5)), stressEnlouquecendo, stressInsano },
+    nameAppearance,
     evasion: saved.evasion === "" || saved.evasion === null || saved.evasion === undefined ? null : finiteInteger(saved.evasion, null),
     protection: saved.protection === "" || saved.protection === null || saved.protection === undefined ? null : finiteInteger(saved.protection, null),
     conviction: saved.conviction === "" || saved.conviction === null || saved.conviction === undefined ? null : finiteInteger(saved.conviction, null),
     hideFromPlayers: Boolean(saved.hideFromPlayers),
-    showTokenName: saved.showTokenName !== false,
+    showTokenName: saved.showTokenName !== false && !nameAppearance.hidden,
   };
 }
 
@@ -279,7 +304,7 @@ function makeResourceBar(token, resource, geometry, settings, showNumbers) {
 
   const background = curveBase(token, ids.background, { x, y }, 10000)
     .fillColor(resource.backgroundColor)
-    .fillOpacity(BACKGROUND_OPACITY)
+    .fillOpacity(RESOURCE_BACKGROUND_OPACITY)
     .points(createRoundedRectangle(width, height, radius))
     .build();
   items.push(background);
@@ -287,7 +312,7 @@ function makeResourceBar(token, resource, geometry, settings, showNumbers) {
   if (ratio > 0) {
     const fill = curveBase(token, ids.fill, { x, y }, 20000)
       .fillColor(resource.color)
-      .fillOpacity(FILL_OPACITY)
+      .fillOpacity(RESOURCE_FILL_OPACITY)
       .strokeOpacity(0)
       .points(createRoundedRectangle(width, height, radius, ratio))
       .build();
@@ -389,12 +414,10 @@ function makeDefenseStats(token, sheet, geometry, settings) {
   return items;
 }
 
-function makeTokenName(token, geometry, settings) {
+function makeTokenName(token, geometry, settings, fontSize) {
   const { x, y, width, height } = geometry;
   const name = String(token.name ?? "").trim();
   if (!name) return [];
-  const fontFactor = settings.nameSize === "large" ? 0.55 : 0.62;
-  const fontSize = Math.max(2.5, Math.min(height * (settings.nameSize === "large" ? 0.94 : 0.78), width / Math.max(1, name.length * fontFactor)));
   const text = buildText()
     .position({ x, y })
     .plainText(name)
@@ -421,6 +444,19 @@ function makeTokenName(token, geometry, settings) {
   return [text];
 }
 
+function getTokenNameMetrics(token, bounds, settings) {
+  const name = String(token.name ?? "").trim();
+  const width = Math.max(1, bounds.width - BAR_PADDING * 2);
+  const baseHeight = Math.max(10, Math.min(20, bounds.height * 0.16));
+  if (!name) return { height: 0, fontSize: 2.5 };
+  // 0% preserves the former Grande size; 100% fits the rendered name to the token width.
+  const baseFontSize = Math.max(2.5, baseHeight * 0.94);
+  const fitFontSize = width / Math.max(1, name.length * 0.55);
+  const sizePercent = Math.max(0, Math.min(100, Number(settings.nameSize) || 0));
+  const fontSize = Math.max(1, baseFontSize + (fitFontSize - baseFontSize) * sizePercent / 100);
+  return { height: Math.max(baseHeight, fontSize * 1.2), fontSize };
+}
+
 async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
   await deleteBarOverlays(token.id);
   const bounds = getImageDimensions(token, sceneDpi);
@@ -429,7 +465,18 @@ async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
   const showDetails = role === "GM" || !sheet.hideFromPlayers;
   const hasDefenseValues = [sheet.evasion, sheet.protection, sheet.conviction].some((value) => value !== null);
   const showDefenseStats = showDetails && hasDefenseValues;
-  const showName = sheet.showTokenName && String(token.name ?? "").trim().length > 0;
+  const nameAppearance = sheet.nameAppearance ?? {
+    sizePercent: settings.nameSize, alignment: settings.nameAlignment, color: settings.nameColor, font: settings.nameFont, hidden: false,
+  };
+  const nameSettings = {
+    ...settings,
+    nameSize: Math.max(0, Math.min(100, Number(nameAppearance.sizePercent) || 0)),
+    nameAlignment: nameAppearance.alignment ?? settings.nameAlignment,
+    nameColor: nameAppearance.color ?? settings.nameColor,
+    nameFont: nameAppearance.font ?? settings.nameFont,
+  };
+  const showName = sheet.showTokenName && !nameAppearance.hidden && String(token.name ?? "").trim().length > 0;
+  const nameMetrics = showName ? getTokenNameMetrics(token, bounds, nameSettings) : { height: 0, fontSize: 2.5 };
   const resources = [sheet.wounds, sheet.stress].filter((resource) => Number(resource?.max) > 0);
 
   const width = Math.max(1, bounds.width - BAR_PADDING * 2);
@@ -445,11 +492,7 @@ async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
       ? Math.max(9, Math.min(16, bounds.height * 0.12))
       : Math.max(5, Math.min(9, bounds.height * 0.085)))
     : 0;
-  const nameHeight = showName
-    ? (settings.nameSize === "large"
-      ? Math.max(10, Math.min(20, bounds.height * 0.16))
-      : Math.max(6, Math.min(10, bounds.height * 0.09)))
-    : 0;
+  const nameHeight = showName ? nameMetrics.height : 0;
   const tokenTop = center.y - bounds.height / 2;
   const tokenBottom = center.y + bounds.height / 2;
   const resourceStackHeight = resources.length ? height * resources.length + gap * (resources.length - 1) : 0;
@@ -474,9 +517,7 @@ async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
   const items = [];
 
   if (showName) {
-    const nameWidth = settings.nameSize === "large" ? width : width * 0.76;
-    const nameX = settings.nameAlignment === "right" ? x + width - nameWidth : settings.nameAlignment === "center" ? x + (width - nameWidth) / 2 : x;
-    items.push(...makeTokenName(token, { x: nameX, y: nameY, width: nameWidth, height: nameHeight }, settings));
+    items.push(...makeTokenName(token, { x, y: nameY, width, height: nameHeight }, nameSettings, nameMetrics.fontSize));
   }
   if (showDefenseStats) {
     const statsWidth = isLargeDefense ? width : width * 0.76;

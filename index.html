@@ -90,11 +90,11 @@
                 <div class="settings-color-grid resource-color-grid">
                   <label class="settings-control settings-color-control" for="wounds-color">
                     <span>Preenchido</span>
-                    <input id="wounds-color" type="color" value="#d9878d" aria-label="Cor preenchida da barra de Ferimentos" />
+                    <input id="wounds-color" type="color" value="#bf4652" aria-label="Cor preenchida da barra de Ferimentos" />
                   </label>
                   <label class="settings-control settings-color-control" for="wounds-background-color">
                     <span>Fundo</span>
-                    <input id="wounds-background-color" type="color" value="#b8737b" aria-label="Cor de fundo da barra de Ferimentos" />
+                    <input id="wounds-background-color" type="color" value="#d9878d" aria-label="Cor de fundo da barra de Ferimentos" />
                   </label>
                 </div>
               </section>
@@ -103,11 +103,11 @@
                 <div class="settings-color-grid resource-color-grid">
                   <label class="settings-control settings-color-control" for="stress-color">
                     <span>Preenchido</span>
-                    <input id="stress-color" type="color" value="#87b3e2" aria-label="Cor preenchida da barra de Estresses" />
+                    <input id="stress-color" type="color" value="#347fbd" aria-label="Cor preenchida da barra de Estresses" />
                   </label>
                   <label class="settings-control settings-color-control" for="stress-background-color">
                     <span>Fundo</span>
-                    <input id="stress-background-color" type="color" value="#648db8" aria-label="Cor de fundo da barra de Estresses" />
+                    <input id="stress-background-color" type="color" value="#87b3e2" aria-label="Cor de fundo da barra de Estresses" />
                   </label>
                 </div>
               </section>
@@ -207,12 +207,9 @@
           </div>
 
           <div class="token-settings-panel" data-token-settings-panel="names" hidden>
-            <label class="settings-control" for="name-size">
-              <span>Tamanho</span>
-              <select id="name-size">
-                <option value="small">Pequeno</option>
-                <option value="large">Grande</option>
-              </select>
+            <label class="settings-control name-size-control" for="name-size">
+              <span>Tamanho: <output id="name-size-output">0%</output></span>
+              <input id="name-size" type="range" min="0" max="100" step="1" value="0" aria-label="Tamanho do nome, de zero a cem por cento" />
             </label>
             <label class="settings-control" for="name-alignment">
               <span>Alinhamento</span>

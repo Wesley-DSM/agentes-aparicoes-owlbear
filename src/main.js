@@ -75,11 +75,11 @@ const INITIATIVE_SKILLS = Object.freeze([
   { id: "ocultismo", name: "Ocultismo" }, { id: "percepcao", name: "Percepção" }, { id: "tatica", name: "Tática" }, { id: "tecnologia", name: "Tecnologia" },
 ]);
 const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
-  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
-  woundsColor: "#d9878d",
-  stressColor: "#87b3e2",
-  woundsBackgroundColor: "#b8737b",
-  stressBackgroundColor: "#648db8",
+  // Saturated filled colors over lighter, translucent tracks.
+  woundsColor: "#bf4652",
+  stressColor: "#347fbd",
+  woundsBackgroundColor: "#d9878d",
+  stressBackgroundColor: "#87b3e2",
   barSize: "small",
   barAlignment: "center",
   barTextColor: "#ffffff",
@@ -99,7 +99,7 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   initiativeShowProtection: true,
   initiativeShowConviction: true,
   initiativePassiveSkills: [],
-  nameSize: "large",
+  nameSize: 0,
   nameAlignment: "center",
   nameColor: "#000000",
   nameFont: "serif",
@@ -345,7 +345,7 @@ function normalizeDisplaySettings(raw) {
     initiativeShowProtection: source.initiativeShowProtection !== false && source.initiativeShowDefenses !== false,
     initiativeShowConviction: source.initiativeShowConviction !== false && source.initiativeShowDefenses !== false,
     initiativePassiveSkills: normalizeConfiguredInitiativeSkills(source.initiativePassiveSkills),
-    nameSize: source.nameSize === "large" ? "large" : "small",
+    nameSize: Number.isFinite(Number(source.nameSize)) ? Math.max(0, Math.min(100, Math.round(Number(source.nameSize)))) : 0,
     nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
     nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
     nameFont: normalizeFont(source.nameFont),
@@ -519,6 +519,8 @@ function renderDisplaySettingsControls() {
     const control = byId(id);
     if (control && control.value !== value) control.value = value;
   }
+  const nameSizeOutput = byId("name-size-output");
+  if (nameSizeOutput) nameSizeOutput.textContent = `${displaySettings.nameSize}%`;
   const canEdit = currentRole === "GM";
   const appearancePanel = byId("token-appearance-panel");
   const initiativeDetailsPanel = byId("initiative-detail-settings-panel");
@@ -613,6 +615,10 @@ async function saveDisplaySettings() {
 for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement"]) {
   byId(id)?.addEventListener("change", () => void saveDisplaySettings());
 }
+byId("name-size")?.addEventListener("input", () => {
+  const output = byId("name-size-output");
+  if (output) output.textContent = `${byId("name-size").value}%`;
+});
 
 const resetTokenAppearanceButton = byId("reset-token-appearance");
 const resetTokenAppearanceDialog = byId("reset-token-appearance-dialog");
@@ -695,7 +701,7 @@ function makeResourceAdjustmentButton(tokenId, resourceClass, delta, preview = f
   button.dataset.adjustResource = resourceClass;
   button.dataset.resourceTokenId = tokenId ?? "";
   button.dataset.resourceDelta = String(delta);
-  button.disabled = preview || currentRole !== "GM" || !showDetailedInitiative || !tokenId;
+  button.disabled = preview || !showDetailedInitiative || !tokenId;
   const label = resourceClass === "wounds" ? "Ferimentos" : "Estresses";
   button.title = `${delta < 0 ? "Diminuir" : "Aumentar"} ${label}`;
   button.setAttribute("aria-label", button.title);
@@ -716,41 +722,54 @@ function makeResourceValueControls(tokenId, resourceClass, valueText, preview = 
   return controls;
 }
 
-function makeInitiativeResourceStatus(label, currentValue, maxValue, resourceClass, tokenId, preview = false, masked = false) {
+function makeInitiativeResourceStatus(label, currentValue, maxValue, resourceClass, tokenId, preview = false, masked = false, thresholds = []) {
   const current = Math.max(0, Number.parseInt(currentValue, 10) || 0);
   const max = Math.max(0, Number.parseInt(maxValue, 10) || 0);
   const item = document.createElement("div");
   item.className = `initiative-detail-resource initiative-detail-${resourceClass}`;
-  if (masked) {
-    const track = document.createElement("div");
-    track.className = "initiative-detail-resource-track initiative-detail-resource-track-masked";
-    const fill = document.createElement("span");
-    fill.className = "initiative-detail-resource-fill";
-    fill.style.width = max > 0 ? `${Math.min(100, current / max * 100)}%` : "0%";
-    fill.style.backgroundColor = resourceClass === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor;
-    track.append(fill);
-    item.append(track);
-    return item;
+  const title = document.createElement("span");
+  title.className = "initiative-detail-resource-label";
+  title.textContent = label;
+  const track = document.createElement("div");
+  track.className = "initiative-detail-resource-track";
+  const backgroundColor = resourceClass === "wounds" ? displaySettings.woundsBackgroundColor : displaySettings.stressBackgroundColor;
+  const backgroundMatch = /^#([0-9a-f]{6})$/i.exec(String(backgroundColor ?? ""));
+  if (backgroundMatch) {
+    const hex = backgroundMatch[1];
+    track.style.backgroundColor = `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, 0.25)`;
+    track.style.borderColor = `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, 0.45)`;
   }
-  if (max <= 0) {
-    item.classList.add("initiative-detail-resource-placeholder");
-    item.setAttribute("aria-hidden", "true");
+  const fill = document.createElement("span");
+  fill.className = "initiative-detail-resource-fill";
+  fill.style.width = `${max > 0 ? Math.min(100, current / max * 100) : 0}%`;
+  fill.style.backgroundColor = resourceClass === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor;
+  const addThresholdMarkers = () => {
+    for (const threshold of thresholds) {
+      const numeric = Math.max(0, Number(threshold) || 0);
+      if (max <= 0 || numeric <= 0 || numeric >= max) continue;
+      const marker = document.createElement("span");
+      marker.className = "initiative-detail-resource-marker";
+      marker.style.left = `${Math.min(100, numeric / max * 100)}%`;
+      marker.setAttribute("aria-hidden", "true");
+      track.append(marker);
+    }
+  };
+  if (masked) {
+    track.classList.add("initiative-detail-resource-track-masked");
+    const line = document.createElement("div");
+    line.className = "initiative-detail-resource-line";
+    line.append(title);
+    track.append(fill, line);
+    addThresholdMarkers();
+    item.append(track);
     return item;
   }
   const line = document.createElement("div");
   line.className = "initiative-detail-resource-line";
-  const title = document.createElement("span");
-  title.className = "initiative-detail-resource-label";
-  title.textContent = label;
   const controls = makeResourceValueControls(tokenId, resourceClass, `${current}/${max}`, preview);
-  const track = document.createElement("div");
-  track.className = "initiative-detail-resource-track";
-  const fill = document.createElement("span");
-  fill.className = "initiative-detail-resource-fill";
-  fill.style.width = `${Math.min(100, current / max * 100)}%`;
-  fill.style.backgroundColor = resourceClass === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor;
   line.append(title, controls);
   track.append(fill, line);
+  addThresholdMarkers();
   item.append(track);
   return item;
 }
@@ -776,14 +795,14 @@ function makeInitiativeDetails(item, preview = false, masked = false) {
 
   const woundsCurrent = Math.max(0, Number(sheet.resourceOneNormal ?? sheet.resourceOneCurrent ?? 0) || 0)
     + Math.max(0, Number(sheet.resourceOneChronic ?? 0) || 0);
-  const woundsMax = Math.max(0, Number(sheet.resourceOneUnconscious ?? sheet.resourceOneMax ?? 10) || 0);
+  const woundsMax = Math.max(0, Number(sheet.resourceOneDead ?? 20) || 0);
   const stressCurrent = Math.max(0, Number(sheet.resourceTwoNormal ?? sheet.resourceTwoCurrent ?? 0) || 0)
     + Math.max(0, Number(sheet.resourceTwoChronic ?? 0) || 0);
-  const stressMax = Math.max(0, Number(sheet.resourceTwoUnconscious ?? sheet.resourceTwoMax ?? 10) || 0);
+  const stressMax = Math.max(0, Number(sheet.resourceTwoInsano ?? 20) || 0);
 
   resourceGroup.append(
-    makeInitiativeResourceStatus("Ferimentos", woundsCurrent, woundsMax, "wounds", tokenId, preview, masked),
-    makeInitiativeResourceStatus("Estresses", stressCurrent, stressMax, "stress", tokenId, preview, masked),
+    makeInitiativeResourceStatus("Ferimentos", woundsCurrent, woundsMax, "wounds", tokenId, preview, masked, [sheet.resourceOneWounded ?? 5, sheet.resourceOneUnconscious ?? 10]),
+    makeInitiativeResourceStatus("Estresses", stressCurrent, stressMax, "stress", tokenId, preview, masked, [sheet.resourceTwoStressed ?? 5, sheet.resourceTwoEnlouquecendo ?? sheet.resourceTwoUnconscious ?? 10]),
   );
   details.append(resourceGroup);
   if (masked) {
@@ -1287,7 +1306,7 @@ async function refreshRollHistory(metadata = null) {
     const roomMetadata = metadata ?? await OBR.room.getMetadata();
     if (sequence !== rollHistoryRenderSequence) return;
     const history = normalizeRollHistory(roomMetadata?.[ROLL_HISTORY_KEY]);
-    const newestFirst = [...history].sort((a, b) => b.rolledAt - a.rolledAt);
+    const newestFirst = [...history].reverse().sort((a, b) => b.rolledAt - a.rolledAt);
     const fragment = document.createDocumentFragment();
     newestFirst.forEach((roll) => fragment.append(makeRollHistoryEntry(roll)));
     rollHistoryList.replaceChildren(fragment);
@@ -1393,7 +1412,7 @@ async function setInitiativeValue(tokenId, value) {
 }
 
 async function adjustTokenResource(tokenId, resourceClass, delta) {
-  if (currentRole !== "GM" || !showDetailedInitiative) return;
+  if (!showDetailedInitiative) return;
   const resourceFields = resourceClass === "wounds"
     ? { normal: "resourceOneNormal", chronic: "resourceOneChronic" }
     : resourceClass === "stress"
@@ -1406,6 +1425,10 @@ async function adjustTokenResource(tokenId, resourceClass, delta) {
     const sheet = item?.metadata?.[SHEET_KEY];
     if (!item || !sheet || typeof sheet !== "object") {
       OBR.notification.show("Este token não possui uma ficha de A&A salva.");
+      return;
+    }
+    if (currentRole !== "GM" && sheet.hideFromPlayers) {
+      OBR.notification.show("Os recursos deste token estão ocultos pelo mestre.");
       return;
     }
     await OBR.scene.items.updateItems([item], (updatedItems) => {

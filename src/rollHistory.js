@@ -3,7 +3,7 @@ import OBR from "@owlbear-rodeo/sdk";
 export const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 export const ROLL_HISTORY_KEY = `${EXTENSION_ID}/roll-history`;
 // Room metadata is limited to 16 kB. Keep the shared event log compact.
-export const MAX_ROLL_HISTORY = 40;
+export const MAX_ROLL_HISTORY = 20;
 export const MAX_REACTION_TYPES_PER_ENTRY = 4;
 export const MAX_REACTORS_PER_EMOJI = 6;
 export const MAX_DIE_RESULTS = 6; // Initial result plus at most five rerolls.

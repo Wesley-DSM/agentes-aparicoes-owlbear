@@ -56,6 +56,27 @@
       </dialog>
       <input id="import-sheet-file" type="file" accept="application/json,.json,text/html,.html,.htm" hidden />
 
+      <dialog id="token-name-appearance-dialog" class="confirm-dialog appearance-dialog" aria-labelledby="token-name-appearance-title">
+        <h2 id="token-name-appearance-title">Aparência do nome</h2>
+        <p>Estas opções valem somente para este token.</p>
+        <label class="dialog-field" for="token-name-size"><span>Tamanho do nome: <output id="token-name-size-output">0%</output></span><input id="token-name-size" type="range" min="0" max="100" step="1" value="0" /></label>
+        <label class="dialog-field" for="token-name-alignment"><span>Alinhamento</span><select id="token-name-alignment"><option value="left">Esquerda</option><option value="center">Centralizado</option><option value="right">Direita</option></select></label>
+        <label class="dialog-field" for="token-name-color"><span>Cor</span><input id="token-name-color" type="color" value="#000000" /></label>
+        <label class="dialog-field" for="token-name-font"><span>Fonte</span><select id="token-name-font"><option value="sans-serif">Padrão sem serifa</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option></select></label>
+        <label class="dialog-checkbox" for="token-name-hidden"><input id="token-name-hidden" type="checkbox" /><span>Ocultar nome deste token</span></label>
+        <div class="confirm-dialog-actions"><button id="cancel-token-name-appearance" type="button" class="confirm-cancel">Cancelar</button><button id="save-token-name-appearance" type="button" class="confirm-destructive">Salvar</button></div>
+      </dialog>
+
+      <dialog id="resource-settings-dialog" class="confirm-dialog appearance-dialog" aria-labelledby="resource-settings-title">
+        <h2 id="resource-settings-title">Configurar recurso</h2>
+        <p id="resource-settings-description">Defina os limites e recursos crônicos deste personagem.</p>
+        <label class="dialog-field" for="resource-settings-low"><span id="resource-settings-low-label">Limite inicial</span><input id="resource-settings-low" type="number" min="0" max="9999" step="1" value="5" /></label>
+        <label class="dialog-field" for="resource-settings-mid"><span id="resource-settings-mid-label">Limite intermediário</span><input id="resource-settings-mid" type="number" min="0" max="9999" step="1" value="10" /></label>
+        <label class="dialog-field" for="resource-settings-high"><span id="resource-settings-high-label">Limite final</span><input id="resource-settings-high" type="number" min="0" max="9999" step="1" value="20" /></label>
+        <label class="dialog-field" for="resource-settings-chronic"><span id="resource-settings-chronic-label">Crônicos</span><input id="resource-settings-chronic" type="number" min="0" max="9999" step="1" value="0" /></label>
+        <div class="confirm-dialog-actions"><button id="cancel-resource-settings" type="button" class="confirm-cancel">Cancelar</button><button id="save-resource-settings" type="button" class="confirm-destructive">Salvar</button></div>
+      </dialog>
+
       <form id="sheet-form" autocomplete="off">
         <nav class="sheet-tabs" aria-label="Abas da ficha">
           <button class="sheet-tab active" type="button" data-sheet-tab="character-tab" aria-selected="true">Ficha</button>
@@ -68,8 +89,7 @@
         <div id="character-tab" class="sheet-tab-panel" data-sheet-panel>
         <section class="panel collapsible-panel identity-panel" aria-labelledby="identity-heading">
           <div class="panel-heading">
-            <h2 id="identity-heading">Identidade</h2>
-            <button class="collapse-toggle" type="button" data-collapse-target="identity-content" aria-expanded="true" aria-label="Recolher Identidade">−</button>
+            <h2 id="identity-heading" class="section-heading-toggle" data-collapse-target="identity-content" aria-expanded="true" tabindex="0" role="button"><span>Identidade</span></h2>
           </div>
           <div id="identity-content" class="collapsible-content">
             <div class="identity-name-row">
@@ -77,7 +97,7 @@
                 <span>Nome</span>
                 <input id="character-name" name="characterName" type="text" maxlength="100" placeholder="Nome do personagem" />
               </label>
-              <button id="toggle-token-name" class="token-name-toggle" type="button" aria-pressed="true" title="Mostrar ou esconder o nome definido nas propriedades do token">Esconder</button>
+              <button id="toggle-token-name" class="token-name-toggle" type="button" aria-label="Personalizar aparência do nome do token" title="Personalizar aparência do nome do token"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button>
             </div>
             <div class="identity-pair identity-class-organization">
               <label class="field">
@@ -118,59 +138,47 @@
 
         <section class="panel collapsible-panel resources-panel" aria-labelledby="resources-heading">
           <div class="panel-heading">
-            <h2 id="resources-heading">Ferimentos e Estresses</h2>
-            <button class="collapse-toggle" type="button" data-collapse-target="resources-content" aria-expanded="true" aria-label="Recolher Ferimentos e Estresses">−</button>
+            <h2 id="resources-heading" class="section-heading-toggle" data-collapse-target="resources-content" aria-expanded="true" tabindex="0" role="button"><span>Ferimentos e Estresses</span></h2>
           </div>
           <div id="resources-content" class="collapsible-content">
-            <div class="resource-grid">
-              <div class="resource-column">
-                <div class="resource-heading">
-                  <h3>Ferimentos</h3>
-                  <span class="resource-dot wound" aria-hidden="true"></span>
-                </div>
-                <div class="resource-values-grid">
-                  <label class="field compact-field">
-                    <span>Normais</span>
-                    <input id="resource-one-normal" type="number" min="0" step="1" value="0" required />
-                  </label>
-                  <label class="field compact-field">
-                    <span>Crônicos</span>
-                    <input id="resource-one-chronic" type="number" min="0" step="1" value="0" required />
-                  </label>
-                  <label class="field compact-field">
-                    <span>Inconsciente</span>
-                    <input id="resource-one-unconscious" type="number" min="0" step="1" value="10" required />
-                  </label>
+            <div class="resource-bars">
+              <div class="sheet-resource-bar sheet-resource-wounds">
+                <button class="sheet-resource-label" type="button" data-resource-settings="wounds" aria-label="Configurar Ferimentos">Ferimentos</button>
+                <div class="sheet-resource-track" aria-hidden="true"><span id="resource-one-fill" class="sheet-resource-fill"></span></div>
+                <div class="sheet-resource-controls">
+                  <button class="sheet-resource-adjust" type="button" data-resource-adjust="wounds" data-resource-delta="-1" aria-label="Diminuir Ferimentos">−</button>
+                  <output id="resource-one-value" class="sheet-resource-value">0/20</output>
+                  <button class="sheet-resource-adjust" type="button" data-resource-adjust="wounds" data-resource-delta="1" aria-label="Aumentar Ferimentos">+</button>
                 </div>
               </div>
-              <div class="resource-column">
-                <div class="resource-heading">
-                  <h3>Estresses</h3>
-                  <span class="resource-dot stress" aria-hidden="true"></span>
-                </div>
-                <div class="resource-values-grid">
-                  <label class="field compact-field">
-                    <span>Normais</span>
-                    <input id="resource-two-normal" type="number" min="0" step="1" value="0" required />
-                  </label>
-                  <label class="field compact-field">
-                    <span>Crônicos</span>
-                    <input id="resource-two-chronic" type="number" min="0" step="1" value="0" required />
-                  </label>
-                  <label class="field compact-field">
-                    <span>Inconsciente</span>
-                    <input id="resource-two-unconscious" type="number" min="0" step="1" value="10" required />
-                  </label>
+              <div class="sheet-resource-bar sheet-resource-stress">
+                <button class="sheet-resource-label" type="button" data-resource-settings="stress" aria-label="Configurar Estresses">Estresses</button>
+                <div class="sheet-resource-track" aria-hidden="true"><span id="resource-two-fill" class="sheet-resource-fill"></span></div>
+                <div class="sheet-resource-controls">
+                  <button class="sheet-resource-adjust" type="button" data-resource-adjust="stress" data-resource-delta="-1" aria-label="Diminuir Estresses">−</button>
+                  <output id="resource-two-value" class="sheet-resource-value">0/20</output>
+                  <button class="sheet-resource-adjust" type="button" data-resource-adjust="stress" data-resource-delta="1" aria-label="Aumentar Estresses">+</button>
                 </div>
               </div>
+            </div>
+            <div class="resource-hidden-fields" aria-hidden="true">
+              <input id="resource-one-normal" type="number" min="0" step="1" value="0" />
+              <input id="resource-one-chronic" type="number" min="0" step="1" value="0" />
+              <input id="resource-one-wounded" type="number" min="0" step="1" value="5" />
+              <input id="resource-one-unconscious" type="number" min="0" step="1" value="10" />
+              <input id="resource-one-dead" type="number" min="0" step="1" value="20" />
+              <input id="resource-two-normal" type="number" min="0" step="1" value="0" />
+              <input id="resource-two-chronic" type="number" min="0" step="1" value="0" />
+              <input id="resource-two-stressed" type="number" min="0" step="1" value="5" />
+              <input id="resource-two-enlouquecendo" type="number" min="0" step="1" value="10" />
+              <input id="resource-two-insano" type="number" min="0" step="1" value="20" />
             </div>
           </div>
         </section>
 
         <section class="panel collapsible-panel defenses-panel" aria-labelledby="defenses-heading">
           <div class="panel-heading">
-            <h2 id="defenses-heading">Defesas</h2>
-            <button class="collapse-toggle" type="button" data-collapse-target="defenses-content" aria-expanded="true" aria-label="Recolher Defesas">−</button>
+            <h2 id="defenses-heading" class="section-heading-toggle" data-collapse-target="defenses-content" aria-expanded="true" tabindex="0" role="button"><span>Defesas</span></h2>
           </div>
           <div id="defenses-content" class="collapsible-content">
             <div class="defenses-grid">
@@ -192,8 +200,7 @@
 
         <section class="panel collapsible-panel skills-panel" aria-labelledby="skills-heading">
           <div class="panel-heading">
-            <h2 id="skills-heading">Perícias</h2>
-            <button class="collapse-toggle" type="button" data-collapse-target="skills-content" aria-expanded="true" aria-label="Recolher Perícias">−</button>
+            <h2 id="skills-heading" class="section-heading-toggle" data-collapse-target="skills-content" aria-expanded="true" tabindex="0" role="button"><span>Perícias</span></h2>
           </div>
           <div id="skills-content" class="collapsible-content">
             <div id="skills-list" class="skills-list"></div>
@@ -207,11 +214,11 @@
               <div class="inventory-toolbar">
                 <input id="inventory-spaces" name="inventorySpaces" type="hidden" value="0" />
                 <div class="inventory-spaces-control">
-                  <button id="inventory-spaces-used" class="inventory-spaces-used" type="button" aria-live="polite" title="Clique para editar o limite">Ocupados: 0 / 0</button>
+                  <h2 id="inventory-heading" class="section-heading-toggle" data-collapse-target="inventory-content" aria-expanded="true" tabindex="0" role="button"><span>Inventário</span></h2>
+                <button id="inventory-spaces-used" class="inventory-spaces-used" type="button" aria-live="polite" title="Clique para editar o limite">Ocupados: 0 / 0</button>
                   <input id="inventory-spaces-editor" class="inventory-spaces-editor" type="number" min="0" max="9999" step="1" inputmode="numeric" aria-label="Limite de espaços do inventário" title="Digite o limite e pressione Enter" hidden />
                 </div>
                 <button id="add-inventory-item" class="add-entry-button" type="button">+ Adicionar item</button>
-                <button class="collapse-toggle" type="button" data-collapse-target="inventory-content" aria-expanded="true" aria-label="Recolher Inventário">−</button>
               </div>
             </div>
             <div id="inventory-content" class="collapsible-content">
@@ -223,10 +230,9 @@
         <div id="powers-tab" class="sheet-tab-panel" data-sheet-panel hidden>
           <section class="panel collapsible-panel" aria-labelledby="powers-heading">
             <div class="panel-heading">
-              <h2 id="powers-heading">Poderes</h2>
+              <h2 id="powers-heading" class="section-heading-toggle" data-collapse-target="powers-content" aria-expanded="true" tabindex="0" role="button"><span>Poderes</span></h2>
               <div class="panel-heading-actions">
                 <button id="add-power" class="add-entry-button" type="button">+ Adicionar poder</button>
-                <button class="collapse-toggle" type="button" data-collapse-target="powers-content" aria-expanded="true" aria-label="Recolher Poderes">−</button>
               </div>
             </div>
             <div id="powers-content" class="collapsible-content">
@@ -238,10 +244,9 @@
         <div id="rituals-tab" class="sheet-tab-panel" data-sheet-panel hidden>
           <section class="panel collapsible-panel" aria-labelledby="rituals-heading">
             <div class="panel-heading">
-              <h2 id="rituals-heading">Rituais</h2>
+              <h2 id="rituals-heading" class="section-heading-toggle" data-collapse-target="rituals-content" aria-expanded="true" tabindex="0" role="button"><span>Rituais</span></h2>
               <div class="panel-heading-actions">
                 <button id="add-ritual" class="add-entry-button" type="button">+ Adicionar ritual</button>
-                <button class="collapse-toggle" type="button" data-collapse-target="rituals-content" aria-expanded="true" aria-label="Recolher Rituais">−</button>
               </div>
             </div>
             <div id="rituals-content" class="collapsible-content">
@@ -253,10 +258,9 @@
         <div id="profile-tab" class="sheet-tab-panel" data-sheet-panel hidden>
           <section class="panel collapsible-panel" aria-labelledby="parameters-heading">
             <div class="panel-heading">
-              <h2 id="parameters-heading">Parâmetros</h2>
+              <h2 id="parameters-heading" class="section-heading-toggle" data-collapse-target="parameters-content" aria-expanded="true" tabindex="0" role="button"><span>Parâmetros</span></h2>
               <div class="panel-heading-actions">
                 <button id="add-parameter" class="add-entry-button" type="button">+ Adicionar parâmetro</button>
-                <button class="collapse-toggle" type="button" data-collapse-target="parameters-content" aria-expanded="true" aria-label="Recolher Parâmetros">−</button>
               </div>
             </div>
             <div id="parameters-content" class="collapsible-content">
@@ -265,10 +269,9 @@
           </section>
           <section class="panel collapsible-panel" aria-labelledby="traumas-heading">
             <div class="panel-heading">
-              <h2 id="traumas-heading">Traumas</h2>
+              <h2 id="traumas-heading" class="section-heading-toggle" data-collapse-target="traumas-content" aria-expanded="true" tabindex="0" role="button"><span>Traumas</span></h2>
               <div class="panel-heading-actions">
                 <button id="add-trauma" class="add-entry-button" type="button">+ Adicionar trauma</button>
-                <button class="collapse-toggle" type="button" data-collapse-target="traumas-content" aria-expanded="true" aria-label="Recolher Traumas">−</button>
               </div>
             </div>
             <div id="traumas-content" class="collapsible-content">
@@ -277,8 +280,7 @@
           </section>
           <section class="panel collapsible-panel" aria-labelledby="history-heading">
             <div class="panel-heading">
-              <h2 id="history-heading">História</h2>
-              <button class="collapse-toggle" type="button" data-collapse-target="history-content" aria-expanded="true" aria-label="Recolher História">−</button>
+              <h2 id="history-heading" class="section-heading-toggle" data-collapse-target="history-content" aria-expanded="true" tabindex="0" role="button"><span>História</span></h2>
             </div>
             <div id="history-content" class="collapsible-content">
               <label class="field history-field">

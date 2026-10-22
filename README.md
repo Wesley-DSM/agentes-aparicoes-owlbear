@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Protótipo experimental 0.45.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Protótipo experimental 0.46.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -21,7 +21,7 @@ A opção **Owlbear** acompanha a paleta ativa do Owlbear Rodeo, incluindo as al
 
 A iniciativa aceita valores decimais e mantém o turno ativo alinhado aos tokens que ainda existem na cena. Registros associados a tokens removidos da cena são limpos automaticamente.
 
-A aba **CHAT** mostra até 40 mensagens e eventos públicos recentes: mensagens dos participantes, rolagens de perícias, rolagens manuais e usos compartilhados de poderes e rituais. Os botões I–V rolam de um a cinco d10. Cada dado rolado pode ser rerrolado após confirmação; os resultados anteriores ficam tachados e somente o resultado mais recente entra no cálculo. A DT fica à direita dos dados; o resultado aparece junto ao nome do personagem e do jogador. A DT aceita valores de 0 a 9999 e calcula os críticos conforme as regras de A&A 0.8. Os usos de poderes e rituais exibem seus traços, rolagens inline e descrição no CHAT. Os participantes podem reagir a cada evento com emojis e alternar suas reações. O mestre pode limpar o CHAT, com confirmação. O registro é compartilhado por meio dos metadados da sala, cujo limite de tamanho exige manter a lista compacta.
+A aba **CHAT** mostra até 20 mensagens e eventos públicos recentes: mensagens dos participantes, rolagens de perícias, rolagens manuais e usos compartilhados de poderes e rituais. Os botões I–V rolam de um a cinco d10. Cada dado rolado pode ser rerrolado após confirmação; os resultados anteriores ficam tachados e somente o resultado mais recente entra no cálculo. A DT fica à direita dos dados; o resultado aparece junto ao nome do personagem e do jogador. A DT aceita valores de 0 a 9999 e calcula os críticos conforme as regras de A&A 0.8. Os usos de poderes e rituais exibem seus traços, rolagens inline e descrição no CHAT. Os participantes podem reagir a cada evento com emojis e alternar suas reações. O mestre pode limpar o CHAT, com confirmação. O registro é compartilhado por meio dos metadados da sala, cujo limite de tamanho exige manter a lista compacta.
 
 O seletor de abas indica mensagens não lidas, e o ícone da extensão recebe um ponto branco enquanto houver mensagens novas. O contador considera eventos novos do CHAT e marca o histórico como lido quando a aba é aberta com o painel visível.
 
