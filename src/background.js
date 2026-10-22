@@ -1,7 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { startBarOverlayService } from "./barRenderer.js";
-import { isSkillRoll, isAbilityUse, ROLL_CHANNEL, ABILITY_CHANNEL, EXTENSION_ID } from "./rollWindow.js";
-import { appendRollHistory } from "./rollHistory.js";
+const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 
 
 function smallestViewportDimension(values, fallback) {
@@ -58,22 +57,6 @@ OBR.onReady(async () => {
       orientationTimer = window.setTimeout(() => {
         void registerSheetContextMenu().catch((error) => console.debug("A&A: não foi possível ajustar a altura da ficha.", error));
       }, 220);
-    });
-
-    // The sender writes its own event; all other clients append remote events
-    // to the room's shared CHAT instead of opening an extra result popover.
-    OBR.broadcast.onMessage(ROLL_CHANNEL, (event) => {
-      if (!isSkillRoll(event.data)) return;
-      void appendRollHistory(event.data).catch((error) => {
-        console.error("A&A: não foi possível registrar a rolagem recebida no CHAT.", error);
-      });
-    });
-
-    OBR.broadcast.onMessage(ABILITY_CHANNEL, (event) => {
-      if (!isAbilityUse(event.data)) return;
-      void appendRollHistory(event.data).catch((error) => {
-        console.error("A&A: não foi possível registrar a habilidade recebida no CHAT.", error);
-      });
     });
 
     startBarOverlayService();

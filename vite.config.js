@@ -44,7 +44,6 @@ export default defineConfig(({ mode }) => {
           main: resolve(process.cwd(), "index.html"),
           sheet: resolve(process.cwd(), "sheet.html"),
           background: resolve(process.cwd(), "background.html"),
-          rollResult: resolve(process.cwd(), "roll-result.html"),
         },
       },
     },

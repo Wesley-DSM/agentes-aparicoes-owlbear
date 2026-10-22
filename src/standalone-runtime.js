@@ -19,6 +19,9 @@
   const ALL_SKILLS = SKILL_GROUPS.flatMap((group) => group.skills.map((skill) => ({ ...skill, group: group.name })));
   const ROMAN_BY_RANK = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" };
   let originalPayload;
+  let nameAppearance = null;
+  let showTokenName = true;
+  let resourceSettingsDraft = { woundsChronic: 0, stressChronic: 0 };
 
   function setNotice(message, type = "info") {
     notice.textContent = message;
@@ -61,17 +64,17 @@
       occupation: String(raw.occupation ?? "").trim().slice(0, 100), evolution: nonNegative(raw.evolution, 1, 100),
       resourceOneNormal: nonNegative(raw.resourceOneNormal ?? raw.resourceOneCurrent, 0),
       resourceOneChronic: nonNegative(raw.resourceOneChronic, 0),
-      resourceOneWounded: nonNegative(raw.resourceOneWounded, 5),
-      resourceOneUnconscious: nonNegative(raw.resourceOneUnconscious ?? raw.resourceOneMax, 10),
-      resourceOneDead: nonNegative(raw.resourceOneDead, 20),
+      resourceOneUnconscious: nonNegative(raw.resourceOneUnconsciousAt ?? raw.resourceOneUnconscious ?? raw.resourceOneMax, 10),
+      resourceOneHurtAt: Math.max(1, nonNegative(raw.resourceOneHurtAt, 5)),
+      resourceOneDeadAt: Math.max(1, nonNegative(raw.resourceOneDeadAt, 20)),
       resourceTwoNormal: nonNegative(raw.resourceTwoNormal ?? raw.resourceTwoCurrent, 0),
       resourceTwoChronic: nonNegative(raw.resourceTwoChronic, 0),
-      resourceTwoStressed: nonNegative(raw.resourceTwoStressed, 5),
-      resourceTwoEnlouquecendo: nonNegative(raw.resourceTwoEnlouquecendo ?? raw.resourceTwoUnconscious ?? raw.resourceTwoMax, 10),
-      resourceTwoInsano: nonNegative(raw.resourceTwoInsano, 20),
+      resourceTwoUnconscious: nonNegative(raw.resourceTwoLosingMindAt ?? raw.resourceTwoUnconsciousAt ?? raw.resourceTwoUnconscious ?? raw.resourceTwoMax, 10),
+      resourceTwoStressedAt: Math.max(1, nonNegative(raw.resourceTwoStressedAt, 5)),
+      resourceTwoInsaneAt: Math.max(1, nonNegative(raw.resourceTwoInsaneAt, 20)),
       evasion: optionalNumber(raw.evasion), protection: optionalNumber(raw.protection), conviction: optionalNumber(raw.conviction),
       hideFromPlayers: Boolean(raw.hideFromPlayers), showTokenName: raw.showTokenName !== false,
-      tokenNameAppearance: raw.tokenNameAppearance && typeof raw.tokenNameAppearance === "object" ? raw.tokenNameAppearance : null,
+      nameAppearance: raw.nameAppearance && typeof raw.nameAppearance === "object" ? raw.nameAppearance : null,
       skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankValue(skillsMap.get(skill.id)?.rank ?? 1) })),
       inventorySpaces: nonNegative(raw.inventorySpaces ?? raw.inventoryMaxSpaces, 0),
       inventory: Array.isArray(raw.inventory) ? raw.inventory.filter((item) => item && typeof item === "object").map((item) => ({
@@ -83,6 +86,148 @@
       parameters: normalizeProfiles(raw.parameters, "parameter"), traumas: normalizeProfiles(raw.traumas, "trauma"),
       history: String(raw.history ?? "").slice(0, 16000),
     };
+  }
+
+  function normalizeNameAppearance(raw = {}, fallback = {}) {
+    const source = { ...(fallback && typeof fallback === "object" ? fallback : {}), ...(raw && typeof raw === "object" ? raw : {}) };
+    const rawPercent = Number(source.nameSizePercent);
+    const allowedFonts = ["sans-serif", "Arial", "serif", "Georgia", "Times New Roman", "monospace", "Courier New", "cursive"];
+    return {
+      nameSizePercent: Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, rawPercent)) : (source.nameSize === "small" ? 35 : 0),
+      nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : "center",
+      nameColor: /^#[0-9a-f]{6}$/i.test(String(source.nameColor ?? "")) ? String(source.nameColor).toLowerCase() : "#000000",
+      nameFont: allowedFonts.includes(source.nameFont) ? source.nameFont : "serif",
+    };
+  }
+
+  function updateResourceTrackerVisuals() {
+    const read = (id, fallback = 0) => nonNegative(byId(id)?.value, fallback);
+    const woundsNormal = read("resource-one-normal");
+    const woundsChronic = read("resource-one-chronic");
+    const wounds = woundsNormal + woundsChronic;
+    const woundsHurt = Math.max(1, read("resource-one-hurt-at", 5));
+    const woundsUnconscious = Math.max(1, read("resource-one-unconscious", 10));
+    const woundsDead = Math.max(woundsUnconscious + 1, read("resource-one-dead-at", 20));
+    const stressNormal = read("resource-two-normal");
+    const stressChronic = read("resource-two-chronic");
+    const stress = stressNormal + stressChronic;
+    const stressStressed = Math.max(1, read("resource-two-stressed-at", 5));
+    const stressLosingMind = Math.max(1, read("resource-two-unconscious", 10));
+    const stressInsane = Math.max(stressLosingMind + 1, read("resource-two-insane-at", 20));
+    if (byId("sheet-wounds-current")) byId("sheet-wounds-current").textContent = `${wounds}/${woundsUnconscious}`;
+    if (byId("sheet-stress-current")) byId("sheet-stress-current").textContent = `${stress}/${stressLosingMind}`;
+    if (byId("sheet-wounds-fill")) byId("sheet-wounds-fill").style.width = `${Math.min(100, wounds / woundsUnconscious * 100)}%`;
+    if (byId("sheet-stress-fill")) byId("sheet-stress-fill").style.width = `${Math.min(100, stress / stressLosingMind * 100)}%`;
+    const marker = (id, threshold, max) => {
+      const node = byId(id);
+      if (!node) return;
+      const percent = Math.min(100, Math.max(0, threshold / Math.max(1, max) * 100));
+      node.style.left = percent >= 100 ? "calc(100% - 2px)" : `${percent}%`;
+    };
+    marker("sheet-wounds-hurt-marker", woundsHurt, woundsUnconscious);
+    marker("sheet-wounds-unconscious-marker", woundsUnconscious, woundsUnconscious);
+    marker("sheet-stress-stressed-marker", stressStressed, stressLosingMind);
+    marker("sheet-stress-losing-mind-marker", stressLosingMind, stressLosingMind);
+    for (const button of form.querySelectorAll("[data-resource-step]")) {
+      const isWounds = button.dataset.resourceStep === "wounds";
+      const normal = isWounds ? woundsNormal : stressNormal;
+      const total = isWounds ? wounds : stress;
+      const hardLimit = isWounds ? woundsDead : stressInsane;
+      const delta = Number.parseInt(button.dataset.resourceDelta, 10) || 0;
+      button.disabled = delta < 0 ? normal <= 0 : total >= hardLimit;
+    }
+  }
+
+  function openNameAppearanceDialog() {
+    const dialog = byId("name-appearance-dialog");
+    if (!dialog) return;
+    const appearance = normalizeNameAppearance(nameAppearance ?? {}, originalPayload?.displaySettings ?? {});
+    byId("token-name-size").value = String(appearance.nameSizePercent);
+    byId("token-name-size-value").textContent = `${appearance.nameSizePercent}%`;
+    byId("token-name-alignment").value = appearance.nameAlignment;
+    byId("token-name-color").value = appearance.nameColor;
+    byId("token-name-font").value = appearance.nameFont;
+    byId("token-name-visible").checked = showTokenName;
+    const description = dialog.querySelector("p");
+    if (description) description.textContent = "As opções serão aplicadas ao token quando você importar a ficha atualizada no Owlbear Rodeo.";
+    dialog.showModal();
+  }
+
+  function saveNameAppearance() {
+    nameAppearance = normalizeNameAppearance({
+      nameSizePercent: Number.parseInt(byId("token-name-size").value, 10) || 0,
+      nameAlignment: byId("token-name-alignment").value,
+      nameColor: byId("token-name-color").value,
+      nameFont: byId("token-name-font").value,
+    });
+    showTokenName = Boolean(byId("token-name-visible").checked);
+    byId("name-appearance-dialog").close();
+    setNotice("Aparência do nome atualizada. Clique em Salvar para baixar o HTML com essa configuração.", "info");
+  }
+
+  function resetNameAppearanceToRoom() {
+    nameAppearance = null;
+    showTokenName = true;
+    byId("name-appearance-dialog").close();
+    setNotice("Aparência do nome restaurada às configurações da sala. Clique em Salvar para baixar o HTML atualizado.", "info");
+  }
+
+  function openResourceSettingsDialog() {
+    byId("config-wounds-hurt").value = byId("resource-one-hurt-at").value || "5";
+    byId("config-wounds-unconscious").value = byId("resource-one-unconscious").value || "10";
+    byId("config-wounds-dead").value = byId("resource-one-dead-at").value || "20";
+    byId("config-stress-stressed").value = byId("resource-two-stressed-at").value || "5";
+    byId("config-stress-losing-mind").value = byId("resource-two-unconscious").value || "10";
+    byId("config-stress-insane").value = byId("resource-two-insane-at").value || "20";
+    resourceSettingsDraft = {
+      woundsChronic: nonNegative(byId("resource-one-chronic").value),
+      stressChronic: nonNegative(byId("resource-two-chronic").value),
+    };
+    byId("config-wounds-chronic-value").textContent = String(resourceSettingsDraft.woundsChronic);
+    byId("config-stress-chronic-value").textContent = String(resourceSettingsDraft.stressChronic);
+    byId("resource-settings-dialog").showModal();
+  }
+
+  function saveResourceSettings() {
+    const mappings = [
+      ["resource-one-hurt-at", "config-wounds-hurt"],
+      ["resource-one-unconscious", "config-wounds-unconscious"],
+      ["resource-one-dead-at", "config-wounds-dead"],
+      ["resource-two-stressed-at", "config-stress-stressed"],
+      ["resource-two-unconscious", "config-stress-losing-mind"],
+      ["resource-two-insane-at", "config-stress-insane"],
+    ];
+    const values = mappings.map(([, dialogId]) => Number.parseInt(byId(dialogId).value, 10));
+    if (values.some((value) => !Number.isInteger(value) || value < 1 || value > 9999)) {
+      setNotice("Os limites devem ser números inteiros entre 1 e 9999.", "warning");
+      return;
+    }
+    const [woundsHurt, woundsUnconscious, woundsDead, stressStressed, stressLosingMind, stressInsane] = values;
+    if (!(woundsHurt < woundsUnconscious && woundsUnconscious < woundsDead && stressStressed < stressLosingMind && stressLosingMind < stressInsane)) {
+      setNotice("Cada limite deve ser maior que o anterior: primeiro estágio, segundo estágio e limite final.", "warning");
+      return;
+    }
+    for (let i = 0; i < mappings.length; i += 1) byId(mappings[i][0]).value = String(values[i]);
+    const woundsNormal = nonNegative(byId("resource-one-normal").value);
+    const stressNormal = nonNegative(byId("resource-two-normal").value);
+    byId("resource-one-chronic").value = String(Math.min(resourceSettingsDraft.woundsChronic, Math.max(0, woundsDead - woundsNormal)));
+    byId("resource-two-chronic").value = String(Math.min(resourceSettingsDraft.stressChronic, Math.max(0, stressInsane - stressNormal)));
+    updateResourceTrackerVisuals();
+    byId("resource-settings-dialog").close();
+    setNotice("Limites atualizados. Clique em Salvar para baixar a ficha atualizada.", "info");
+  }
+
+  function stepResource(resourceClass, delta) {
+    const wounds = resourceClass === "wounds";
+    const id = wounds ? "resource-one-normal" : "resource-two-normal";
+    const chronicId = wounds ? "resource-one-chronic" : "resource-two-chronic";
+    const finalId = wounds ? "resource-one-dead-at" : "resource-two-insane-at";
+    const normal = nonNegative(byId(id).value);
+    const chronic = nonNegative(byId(chronicId).value);
+    const limit = Math.max(1, nonNegative(byId(finalId).value, 20));
+    const next = delta > 0 ? Math.min(normal + delta, Math.max(0, limit - chronic)) : Math.max(0, normal + delta);
+    byId(id).value = String(next);
+    updateResourceTrackerVisuals();
   }
 
   function escapeHtml(value) {
@@ -218,11 +363,10 @@
     for (const group of SKILL_GROUPS) {
       const section = document.createElement("section"); section.className = "skill-group";
       const heading = document.createElement("div"); heading.className = "skill-group-heading";
-      const title = document.createElement("h3"); title.className = "skill-group-title"; title.textContent = group.name;
-      const collapse = smallButton("−", "collapse-toggle collapse-toggle-small", "collapseTarget", `Recolher ${group.name}`);
-      collapse.dataset.collapseTarget = `standalone-skill-${group.skills[0].id}`; collapse.setAttribute("aria-expanded", "true");
-      heading.append(title, collapse); section.append(heading);
-      const content = document.createElement("div"); content.className = "skill-group-content collapsible-content"; content.id = collapse.dataset.collapseTarget;
+      const title = document.createElement("h3"); title.className = "skill-group-title collapsible-heading-toggle"; title.textContent = group.name;
+      title.dataset.collapseTarget = `standalone-skill-${group.skills[0].id}`; title.setAttribute("role", "button"); title.setAttribute("tabindex", "0"); title.setAttribute("aria-expanded", "true"); title.setAttribute("aria-controls", title.dataset.collapseTarget);
+      heading.append(title); section.append(heading);
+      const content = document.createElement("div"); content.className = "skill-group-content collapsible-content"; content.id = title.dataset.collapseTarget;
       for (const skill of group.skills) {
         const row = document.createElement("div"); row.className = "skill-row";
         const name = document.createElement("span"); name.className = "skill-roll-button"; name.textContent = skill.name; name.title = skill.name;
@@ -290,26 +434,27 @@
   }
 
   function renderToForm(sheet) {
+    nameAppearance = sheet.nameAppearance && typeof sheet.nameAppearance === "object" ? { ...sheet.nameAppearance } : null;
+    showTokenName = sheet.showTokenName !== false;
     const values = {
       "character-name": sheet.characterName, "character-class": sheet.characterClass, "character-organization": sheet.organization,
       "character-occupation": sheet.occupation, "character-evolution": sheet.evolution,
       "resource-one-normal": sheet.resourceOneNormal, "resource-one-chronic": sheet.resourceOneChronic,
-      "resource-one-wounded": sheet.resourceOneWounded, "resource-one-unconscious": sheet.resourceOneUnconscious, "resource-one-dead": sheet.resourceOneDead,
-      "resource-two-normal": sheet.resourceTwoNormal, "resource-two-chronic": sheet.resourceTwoChronic,
-      "resource-two-stressed": sheet.resourceTwoStressed, "resource-two-enlouquecendo": sheet.resourceTwoEnlouquecendo, "resource-two-insano": sheet.resourceTwoInsano,
+      "resource-one-unconscious": sheet.resourceOneUnconscious, "resource-one-hurt-at": sheet.resourceOneHurtAt,
+      "resource-one-dead-at": sheet.resourceOneDeadAt, "resource-two-normal": sheet.resourceTwoNormal,
+      "resource-two-chronic": sheet.resourceTwoChronic, "resource-two-unconscious": sheet.resourceTwoUnconscious,
+      "resource-two-stressed-at": sheet.resourceTwoStressedAt, "resource-two-insane-at": sheet.resourceTwoInsaneAt,
       "character-evasion": sheet.evasion, "character-protection": sheet.protection, "character-conviction": sheet.conviction,
       "inventory-spaces": sheet.inventorySpaces, "character-history": sheet.history,
     };
     for (const [id, value] of Object.entries(values)) if (byId(id)) byId(id).value = value ?? "";
     renderSkills(sheet.skills); renderEntryLists(sheet); attachStaticEditors();
-    updateResourceBars();
-    const tokenAppearanceButton = byId("toggle-token-name");
-    if (tokenAppearanceButton) { tokenAppearanceButton.hidden = true; tokenAppearanceButton.disabled = true; tokenAppearanceButton.title = "Aparência do token disponível na extensão do Owlbear"; }
     byId("selected-name").textContent = sheet.characterName;
     document.title = `${sheet.characterName} | Ficha A&A`;
     document.documentElement.dataset.aaTheme = "owlbear";
     byId("app").classList.remove("not-ready");
     updateInventorySpaceTotal();
+    updateResourceTrackerVisuals();
     for (const button of form.querySelectorAll("[data-sheet-tab]")) {
       const active = button.dataset.sheetTab === "character-tab";
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active));
@@ -329,12 +474,13 @@
       characterClass: byId("character-class").value, organization: byId("character-organization").value,
       occupation: byId("character-occupation").value.trim(), evolution: nonNegative(byId("character-evolution").value, 1, 100),
       resourceOneNormal: nonNegative(byId("resource-one-normal").value), resourceOneChronic: nonNegative(byId("resource-one-chronic").value),
-      resourceOneWounded: nonNegative(byId("resource-one-wounded").value, 5), resourceOneUnconscious: nonNegative(byId("resource-one-unconscious").value, 10), resourceOneDead: nonNegative(byId("resource-one-dead").value, 20),
-      resourceTwoNormal: nonNegative(byId("resource-two-normal").value), resourceTwoChronic: nonNegative(byId("resource-two-chronic").value),
-      resourceTwoStressed: nonNegative(byId("resource-two-stressed").value, 5), resourceTwoEnlouquecendo: nonNegative(byId("resource-two-enlouquecendo").value, 10), resourceTwoInsano: nonNegative(byId("resource-two-insano").value, 20),
+      resourceOneUnconscious: nonNegative(byId("resource-one-unconscious").value, 10), resourceOneHurtAt: Math.max(1, nonNegative(byId("resource-one-hurt-at").value, 5)),
+      resourceOneDeadAt: Math.max(1, nonNegative(byId("resource-one-dead-at").value, 20)), resourceTwoNormal: nonNegative(byId("resource-two-normal").value),
+      resourceTwoChronic: nonNegative(byId("resource-two-chronic").value), resourceTwoUnconscious: nonNegative(byId("resource-two-unconscious").value, 10),
+      resourceTwoStressedAt: Math.max(1, nonNegative(byId("resource-two-stressed-at").value, 5)), resourceTwoInsaneAt: Math.max(1, nonNegative(byId("resource-two-insane-at").value, 20)),
       evasion: optionalNumber(byId("character-evasion").value), protection: optionalNumber(byId("character-protection").value), conviction: optionalNumber(byId("character-conviction").value),
-      hideFromPlayers: Boolean(originalPayload?.sheet?.hideFromPlayers), showTokenName: originalPayload?.sheet?.showTokenName !== false,
-      tokenNameAppearance: originalPayload?.sheet?.tokenNameAppearance ?? null,
+      hideFromPlayers: Boolean(originalPayload?.sheet?.hideFromPlayers), showTokenName,
+      nameAppearance: nameAppearance && typeof nameAppearance === "object" ? nameAppearance : null,
       skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankById.get(skill.id) ?? 1 })),
       inventorySpaces: nonNegative(byId("inventory-spaces").value),
       inventory: readList(byId("inventory-list"), "[data-inventory-card]", (card) => ({
@@ -364,7 +510,7 @@
     const total = [...byId("inventory-list").querySelectorAll("[data-inventory-card]")].reduce((sum, card) => sum + nonNegative(card.querySelector('[data-inventory-field="spaces"]')?.value, 1), 0);
     const limit = nonNegative(byId("inventory-spaces").value, 0);
     const output = byId("inventory-spaces-used");
-    output.textContent = `Ocupados: ${total} / ${limit}`; output.classList.toggle("over-capacity", total > limit);
+    output.textContent = `${total}/${limit}`; output.classList.toggle("over-capacity", total > limit);
     output.setAttribute("aria-label", `${total} espaços ocupados de ${limit} disponíveis`);
   }
 
@@ -376,65 +522,10 @@
     return JSON.stringify(value, null, 2).replaceAll("&", "\\u0026").replaceAll("<", "\\u003c").replaceAll(">", "\\u003e");
   }
 
-  function updateResourceBars() {
-    const definitions = [
-      { normal: "resource-one-normal", chronic: "resource-one-chronic", max: "resource-one-dead", output: "resource-one-value", fill: "resource-one-fill" },
-      { normal: "resource-two-normal", chronic: "resource-two-chronic", max: "resource-two-insano", output: "resource-two-value", fill: "resource-two-fill" },
-    ];
-    for (const definition of definitions) {
-      const current = nonNegative(byId(definition.normal)?.value) + nonNegative(byId(definition.chronic)?.value);
-      const maximum = nonNegative(byId(definition.max)?.value, 20);
-      if (byId(definition.output)) byId(definition.output).textContent = `${current}/${maximum}`;
-      if (byId(definition.fill)) byId(definition.fill).style.width = `${maximum > 0 ? Math.min(100, current / maximum * 100) : 0}%`;
-    }
-  }
-
-  let editingResourceType = "wounds";
-  function openResourceSettings(type) {
-    editingResourceType = type === "stress" ? "stress" : "wounds";
-    const wounds = editingResourceType === "wounds";
-    const labels = wounds ? ["Machucado", "Inconsciente", "Morto"] : ["Estressado", "Enlouquecendo", "Insano"];
-    const ids = wounds
-      ? { low: "resource-one-wounded", mid: "resource-one-unconscious", high: "resource-one-dead", chronic: "resource-one-chronic" }
-      : { low: "resource-two-stressed", mid: "resource-two-enlouquecendo", high: "resource-two-insano", chronic: "resource-two-chronic" };
-    byId("resource-settings-title").textContent = wounds ? "Configurar Ferimentos" : "Configurar Estresses";
-    byId("resource-settings-low-label").textContent = labels[0];
-    byId("resource-settings-mid-label").textContent = labels[1];
-    byId("resource-settings-high-label").textContent = labels[2];
-    byId("resource-settings-chronic-label").textContent = wounds ? "Ferimentos crônicos" : "Estresses crônicos";
-    byId("resource-settings-description").textContent = "Defina os limites e ajuste a quantidade de recursos crônicos.";
-    for (const [dialogId, fieldId] of [["resource-settings-low", ids.low], ["resource-settings-mid", ids.mid], ["resource-settings-high", ids.high], ["resource-settings-chronic", ids.chronic]]) byId(dialogId).value = byId(fieldId).value || "0";
-    const dialog = byId("resource-settings-dialog");
-    if (dialog && !dialog.open) dialog.showModal();
-  }
-
-  function saveResourceSettings() {
-    const wounds = editingResourceType === "wounds";
-    const ids = wounds
-      ? { low: "resource-one-wounded", mid: "resource-one-unconscious", high: "resource-one-dead", chronic: "resource-one-chronic" }
-      : { low: "resource-two-stressed", mid: "resource-two-enlouquecendo", high: "resource-two-insano", chronic: "resource-two-chronic" };
-    const thresholds = [nonNegative(byId("resource-settings-low").value, 5), nonNegative(byId("resource-settings-mid").value, 10), nonNegative(byId("resource-settings-high").value, 20)].sort((a, b) => a - b);
-    byId(ids.low).value = String(thresholds[0]); byId(ids.mid).value = String(thresholds[1]); byId(ids.high).value = String(thresholds[2]);
-    byId(ids.chronic).value = String(nonNegative(byId("resource-settings-chronic").value));
-    byId("resource-settings-dialog").close();
-    updateResourceBars();
-    setNotice("Limites atualizados. Salve a ficha para manter as alterações.", "info");
-  }
-
-  function adjustResource(type, delta) {
-    const normalId = type === "stress" ? "resource-two-normal" : "resource-one-normal";
-    const chronicId = type === "stress" ? "resource-two-chronic" : "resource-one-chronic";
-    const normal = nonNegative(byId(normalId).value); const chronic = nonNegative(byId(chronicId).value);
-    if (delta > 0) byId(normalId).value = String(normal + delta);
-    else { const removeNormal = Math.min(normal, Math.abs(delta)); byId(normalId).value = String(normal - removeNormal); byId(chronicId).value = String(Math.max(0, chronic - Math.max(0, Math.abs(delta) - removeNormal))); }
-    updateResourceBars();
-    setNotice("Recurso atualizado. Salve a ficha para manter as alterações.", "info");
-  }
-
   function saveHtml() {
     try {
       const sheet = readSheetFromForm();
-      const nextPayload = { format: "agentes-aparicoes-sheet", formatVersion: 2, exportedAt: new Date().toISOString(), exportedFrom: "browser-editor", sheet };
+      const nextPayload = { ...(originalPayload && typeof originalPayload === "object" ? originalPayload : {}), format: "agentes-aparicoes-sheet", formatVersion: 2, exportedAt: new Date().toISOString(), exportedFrom: "browser-editor", sheet };
       let html = `<!doctype html>\n${document.documentElement.outerHTML}`;
       const dataTag = /(<script id="aa-sheet-data" type="application\/json">)[\s\S]*?(<\/script>)/i;
       if (!dataTag.test(html)) throw new Error("Não foi possível encontrar os dados internos da ficha HTML.");
@@ -451,17 +542,34 @@
     }
   }
 
+  document.addEventListener("keydown", (event) => {
+    const heading = event.target.closest?.(".collapsible-heading-toggle[data-collapse-target]");
+    if (!heading || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault(); heading.click();
+  });
+
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     const save = target.closest("#save-standalone-sheet");
     if (save) { event.preventDefault(); saveHtml(); return; }
-    const resourceSettingButton = target.closest("[data-resource-settings]");
-    if (resourceSettingButton) { openResourceSettings(resourceSettingButton.dataset.resourceSettings); return; }
-    const resourceAdjustButton = target.closest("[data-resource-adjust]");
-    if (resourceAdjustButton) { adjustResource(resourceAdjustButton.dataset.resourceAdjust, Number(resourceAdjustButton.dataset.resourceDelta)); return; }
-    if (target.closest("#save-resource-settings")) { saveResourceSettings(); return; }
-    if (target.closest("#cancel-resource-settings")) { byId("resource-settings-dialog")?.close(); return; }
+    if (target.closest("#edit-token-name-appearance")) { event.preventDefault(); openNameAppearanceDialog(); return; }
+    if (target.closest("#cancel-name-appearance")) { event.preventDefault(); byId("name-appearance-dialog").close(); return; }
+    if (target.closest("#save-name-appearance")) { event.preventDefault(); saveNameAppearance(); return; }
+    if (target.closest("#reset-name-appearance")) { event.preventDefault(); resetNameAppearanceToRoom(); return; }
+    if (target.closest("[data-open-resource-settings]")) { event.preventDefault(); openResourceSettingsDialog(); return; }
+    const resourceStep = target.closest("[data-resource-step]");
+    if (resourceStep) { event.preventDefault(); stepResource(resourceStep.dataset.resourceStep, Number.parseInt(resourceStep.dataset.resourceDelta, 10) || 0); return; }
+    const chronic = target.closest("[data-config-chronic]");
+    if (chronic) {
+      event.preventDefault();
+      const key = chronic.dataset.configChronic === "wounds" ? "woundsChronic" : "stressChronic";
+      resourceSettingsDraft[key] = Math.max(0, Math.min(9999, resourceSettingsDraft[key] + (Number.parseInt(chronic.dataset.resourceDelta, 10) || 0)));
+      byId(key === "woundsChronic" ? "config-wounds-chronic-value" : "config-stress-chronic-value").textContent = String(resourceSettingsDraft[key]);
+      return;
+    }
+    if (target.closest("#cancel-resource-settings")) { event.preventDefault(); byId("resource-settings-dialog").close(); return; }
+    if (target.closest("#save-resource-settings")) { event.preventDefault(); saveResourceSettings(); return; }
     const tab = target.closest("[data-sheet-tab]");
     if (tab) {
       const id = tab.dataset.sheetTab;
@@ -475,11 +583,7 @@
     if (collapse) {
       const panel = byId(collapse.dataset.collapseTarget); if (!panel) return;
       const expanded = collapse.getAttribute("aria-expanded") !== "false";
-      panel.hidden = expanded;
-      collapse.setAttribute("aria-expanded", String(!expanded));
-      if (collapse.classList.contains("section-heading-toggle")) collapse.classList.toggle("is-collapsed", expanded);
-      else collapse.textContent = expanded ? "+" : "−";
-      return;
+      panel.hidden = expanded; collapse.setAttribute("aria-expanded", String(!expanded)); collapse.classList.toggle("is-collapsed", expanded); return;
     }
     const preview = target.closest(".formatted-editor[data-replace-mode=" + '"true"' + "] .markdown-preview");
     if (preview) {
@@ -536,17 +640,15 @@
     if (event.target?.id === "inventory-spaces-editor" && event.key === "Escape") { event.preventDefault(); finishInventorySpacesEdit(false); }
   });
 
+  for (const dialogId of ["name-appearance-dialog", "resource-settings-dialog"]) {
+    const dialog = byId(dialogId);
+    dialog?.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  }
   form.addEventListener("submit", (event) => event.preventDefault());
-  document.addEventListener("keydown", (event) => {
-    const heading = event.target.closest?.(".section-heading-toggle[data-collapse-target]");
-    if (!heading || !["Enter", " "].includes(event.key)) return;
-    event.preventDefault();
-    heading.click();
-  });
-
   form.addEventListener("input", (event) => {
     const field = event.target;
     if (field?.id === "character-name") { byId("selected-name").textContent = field.value.trim() || "Personagem"; document.title = `${field.value.trim() || "Personagem"} | Ficha A&A`; }
+    if (field?.id === "token-name-size") byId("token-name-size-value").textContent = `${field.value}%`;
     if (field?.matches('[data-inventory-field="spaces"]')) updateInventorySpaceTotal();
     if (field?.matches("[data-markdown-editor]") && field.dataset.formatReplace !== "true") {
       const preview = field.closest(".formatted-editor")?.querySelector(".markdown-preview");

@@ -75,9 +75,9 @@ const INITIATIVE_SKILLS = Object.freeze([
   { id: "ocultismo", name: "Ocultismo" }, { id: "percepcao", name: "Percepção" }, { id: "tatica", name: "Tática" }, { id: "tecnologia", name: "Tecnologia" },
 ]);
 const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
-  // Saturated filled colors over lighter, translucent tracks.
-  woundsColor: "#bf4652",
-  stressColor: "#347fbd",
+  // Pastel red wound bars and pastel blue stress bars (filled / empty track).
+  woundsColor: "#c84b56",
+  stressColor: "#397fc4",
   woundsBackgroundColor: "#d9878d",
   stressBackgroundColor: "#87b3e2",
   barSize: "small",
@@ -99,7 +99,7 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   initiativeShowProtection: true,
   initiativeShowConviction: true,
   initiativePassiveSkills: [],
-  nameSize: 0,
+  nameSizePercent: 0,
   nameAlignment: "center",
   nameColor: "#000000",
   nameFont: "serif",
@@ -322,10 +322,10 @@ function normalizeDisplaySettings(raw) {
     return allowedFonts.includes(candidate) ? candidate : "sans-serif";
   };
   return {
-    woundsColor: validColor(source.woundsColor, DEFAULT_DISPLAY_SETTINGS.woundsColor),
-    stressColor: validColor(source.stressColor, DEFAULT_DISPLAY_SETTINGS.stressColor),
-    woundsBackgroundColor: validColor(source.woundsBackgroundColor, DEFAULT_DISPLAY_SETTINGS.woundsBackgroundColor),
-    stressBackgroundColor: validColor(source.stressBackgroundColor, DEFAULT_DISPLAY_SETTINGS.stressBackgroundColor),
+    woundsColor: validColor(source.woundsColor === "#d9878d" ? "#c84b56" : source.woundsColor, DEFAULT_DISPLAY_SETTINGS.woundsColor),
+    stressColor: validColor(source.stressColor === "#87b3e2" ? "#397fc4" : source.stressColor, DEFAULT_DISPLAY_SETTINGS.stressColor),
+    woundsBackgroundColor: validColor(source.woundsBackgroundColor === "#b8737b" ? "#d9878d" : source.woundsBackgroundColor, DEFAULT_DISPLAY_SETTINGS.woundsBackgroundColor),
+    stressBackgroundColor: validColor(source.stressBackgroundColor === "#648db8" ? "#87b3e2" : source.stressBackgroundColor, DEFAULT_DISPLAY_SETTINGS.stressBackgroundColor),
     barSize: source.barSize === "large" ? "large" : "small",
     barAlignment: ["left", "center", "right"].includes(source.barAlignment) ? source.barAlignment : DEFAULT_DISPLAY_SETTINGS.barAlignment,
     barTextColor: validColor(source.barTextColor, DEFAULT_DISPLAY_SETTINGS.barTextColor),
@@ -345,7 +345,7 @@ function normalizeDisplaySettings(raw) {
     initiativeShowProtection: source.initiativeShowProtection !== false && source.initiativeShowDefenses !== false,
     initiativeShowConviction: source.initiativeShowConviction !== false && source.initiativeShowDefenses !== false,
     initiativePassiveSkills: normalizeConfiguredInitiativeSkills(source.initiativePassiveSkills),
-    nameSize: Number.isFinite(Number(source.nameSize)) ? Math.max(0, Math.min(100, Math.round(Number(source.nameSize)))) : 0,
+    nameSizePercent: Number.isFinite(Number(source.nameSizePercent)) ? Math.max(0, Math.min(100, Number(source.nameSizePercent))) : (source.nameSize === "small" ? 35 : 0),
     nameAlignment: ["left", "center", "right"].includes(source.nameAlignment) ? source.nameAlignment : DEFAULT_DISPLAY_SETTINGS.nameAlignment,
     nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
     nameFont: normalizeFont(source.nameFont),
@@ -509,7 +509,7 @@ function renderDisplaySettingsControls() {
     "evasion-background-color": displaySettings.evasionBackgroundColor,
     "protection-background-color": displaySettings.protectionBackgroundColor,
     "conviction-background-color": displaySettings.convictionBackgroundColor,
-    "name-size": displaySettings.nameSize,
+    "name-size": displaySettings.nameSizePercent,
     "name-alignment": displaySettings.nameAlignment,
     "name-color": displaySettings.nameColor,
     "name-font": displaySettings.nameFont,
@@ -517,10 +517,10 @@ function renderDisplaySettingsControls() {
   };
   for (const [id, value] of Object.entries(controls)) {
     const control = byId(id);
-    if (control && control.value !== value) control.value = value;
+    if (control && control.value !== String(value)) control.value = String(value);
   }
-  const nameSizeOutput = byId("name-size-output");
-  if (nameSizeOutput) nameSizeOutput.textContent = `${displaySettings.nameSize}%`;
+  const nameSizeOutput = byId("name-size-percent-value");
+  if (nameSizeOutput) nameSizeOutput.textContent = `${displaySettings.nameSizePercent}%`;
   const canEdit = currentRole === "GM";
   const appearancePanel = byId("token-appearance-panel");
   const initiativeDetailsPanel = byId("initiative-detail-settings-panel");
@@ -533,7 +533,56 @@ function renderDisplaySettingsControls() {
   const note = byId("settings-permission-note");
   if (note) note.textContent = "As configurações das barras são compartilhadas por todos na sala.";
   renderInitiativePreview();
+  renderTokenAppearancePreview();
 }
+
+function renderTokenAppearancePreview() {
+  const host = byId("token-appearance-preview");
+  if (!host) return;
+  const name = host.querySelector(".appearance-preview-name");
+  if (name) {
+    name.style.color = byId("name-color")?.value || displaySettings.nameColor;
+    name.style.fontFamily = byId("name-font")?.value || displaySettings.nameFont;
+    name.style.textAlign = byId("name-alignment")?.value || displaySettings.nameAlignment;
+    const percent = Number(byId("name-size")?.value ?? displaySettings.nameSizePercent) || 0;
+    name.style.fontSize = `${10 + percent * 0.12}px`;
+    name.style.fontWeight = "800";
+  }
+  for (const key of ["wounds", "stress"]) {
+    const button = host.querySelector(`.appearance-preview-${key}`);
+    if (!button) continue;
+    const color = byId(key === "wounds" ? "wounds-color" : "stress-color")?.value || (key === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor);
+    const background = byId(key === "wounds" ? "wounds-background-color" : "stress-background-color")?.value || (key === "wounds" ? displaySettings.woundsBackgroundColor : displaySettings.stressBackgroundColor);
+    const fill = button.querySelector(".appearance-preview-fill");
+    button.style.backgroundColor = background;
+    button.style.borderColor = background;
+    if (fill) {
+      fill.style.backgroundColor = color;
+      fill.style.width = key === "wounds" ? "30%" : "20%";
+    }
+    button.style.height = byId("bar-size")?.value === "large" ? "30px" : "24px";
+    button.style.color = byId("bar-text-color")?.value || displaySettings.barTextColor;
+    button.style.fontFamily = byId("bar-font")?.value || displaySettings.barFont;
+  }
+  const defenseColors = {
+    evasion: byId("evasion-background-color")?.value || displaySettings.evasionBackgroundColor,
+    protection: byId("protection-background-color")?.value || displaySettings.protectionBackgroundColor,
+    conviction: byId("conviction-background-color")?.value || displaySettings.convictionBackgroundColor,
+  };
+  for (const [key, color] of Object.entries(defenseColors)) {
+    const chip = host.querySelector(`[data-preview-defense="${key}"]`);
+    if (!chip) continue;
+    chip.style.backgroundColor = color;
+    chip.style.borderColor = color;
+    chip.style.color = byId("defense-color")?.value || displaySettings.defenseColor;
+    chip.style.fontFamily = byId("defense-font")?.value || displaySettings.defenseFont;
+    chip.style.height = byId("defense-size")?.value === "large" ? "28px" : "23px";
+  }
+  const token = host.querySelector(".appearance-preview-token");
+  if (token) token.dataset.placement = byId("bar-placement")?.value || displaySettings.barPlacement;
+}
+
+renderTokenAppearancePreview();
 
 function setTokenSettingsTab(tabId) {
   for (const panel of document.querySelectorAll("[data-token-settings-panel]")) {
@@ -549,6 +598,21 @@ function setTokenSettingsTab(tabId) {
 document.querySelectorAll("[data-token-settings-tab]").forEach((tab) => {
   tab.addEventListener("click", () => setTokenSettingsTab(tab.dataset.tokenSettingsTab));
 });
+byId("token-appearance-preview")?.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target.closest("[data-appearance-preview-target]") : null;
+  if (!target || currentRole !== "GM") return;
+  const tabId = target.dataset.appearancePreviewTarget;
+  setTokenSettingsTab(tabId);
+  const focusMap = {
+    bars: target.classList.contains("appearance-preview-stress") ? "stress-color" : "wounds-color",
+    defenses: target.dataset.previewDefense === "protection" ? "protection-background-color" : target.dataset.previewDefense === "conviction" ? "conviction-background-color" : "evasion-background-color",
+    names: "name-size",
+  };
+  byId(focusMap[tabId])?.focus();
+});
+for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement"]) {
+  byId(id)?.addEventListener("input", renderTokenAppearancePreview);
+}
 
 async function refreshDisplaySettings(metadata = null) {
   try {
@@ -593,7 +657,7 @@ async function saveDisplaySettings() {
     initiativeShowProtection: displaySettings.initiativeShowProtection,
     initiativeShowConviction: displaySettings.initiativeShowConviction,
     initiativePassiveSkills: displaySettings.initiativePassiveSkills,
-    nameSize: byId("name-size").value,
+    nameSizePercent: Number(byId("name-size").value),
     nameAlignment: byId("name-alignment").value,
     nameColor: byId("name-color").value,
     nameFont: byId("name-font").value,
@@ -615,14 +679,14 @@ async function saveDisplaySettings() {
 for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement"]) {
   byId(id)?.addEventListener("change", () => void saveDisplaySettings());
 }
-byId("name-size")?.addEventListener("input", () => {
-  const output = byId("name-size-output");
-  if (output) output.textContent = `${byId("name-size").value}%`;
-});
+byId("name-size")?.addEventListener("input", () => { const output = byId("name-size-percent-value"); if (output) output.textContent = `${byId("name-size").value}%`; });
 
 const resetTokenAppearanceButton = byId("reset-token-appearance");
 const resetTokenAppearanceDialog = byId("reset-token-appearance-dialog");
 const cancelResetTokenAppearanceButton = byId("cancel-reset-token-appearance");
+const initiativeResourceSettingsDialog = byId("initiative-resource-settings-dialog");
+let editingResourceTokenId = null;
+let initiativeResourceSettingsDraft = { woundsChronic: 0, stressChronic: 0 };
 const confirmResetTokenAppearanceButton = byId("confirm-reset-token-appearance");
 
 resetTokenAppearanceButton?.addEventListener("click", () => {
@@ -693,7 +757,7 @@ function getImageUrl(item, entry) {
   }
 }
 
-function makeResourceAdjustmentButton(tokenId, resourceClass, delta, preview = false) {
+function makeResourceAdjustmentButton(tokenId, resourceClass, delta, preview = false, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "initiative-detail-adjust-button";
@@ -701,75 +765,76 @@ function makeResourceAdjustmentButton(tokenId, resourceClass, delta, preview = f
   button.dataset.adjustResource = resourceClass;
   button.dataset.resourceTokenId = tokenId ?? "";
   button.dataset.resourceDelta = String(delta);
-  button.disabled = preview || !showDetailedInitiative || !tokenId;
+  button.disabled = preview || !showDetailedInitiative || !tokenId || disabled;
   const label = resourceClass === "wounds" ? "Ferimentos" : "Estresses";
   button.title = `${delta < 0 ? "Diminuir" : "Aumentar"} ${label}`;
   button.setAttribute("aria-label", button.title);
   return button;
 }
 
-function makeResourceValueControls(tokenId, resourceClass, valueText, preview = false) {
+function makeResourceValueControls(tokenId, resourceClass, currentValue, barMax, hardLimit, normalValue, preview = false) {
   const controls = document.createElement("span");
   controls.className = "initiative-detail-resource-controls";
   const value = document.createElement("span");
   value.className = "initiative-detail-resource-value";
-  value.textContent = valueText;
+  value.textContent = `${currentValue}/${barMax}`;
   controls.append(
-    makeResourceAdjustmentButton(tokenId, resourceClass, -1, preview),
+    makeResourceAdjustmentButton(tokenId, resourceClass, -1, preview, normalValue <= 0),
     value,
-    makeResourceAdjustmentButton(tokenId, resourceClass, 1, preview),
+    makeResourceAdjustmentButton(tokenId, resourceClass, 1, preview, currentValue >= hardLimit),
   );
   return controls;
 }
 
-function makeInitiativeResourceStatus(label, currentValue, maxValue, resourceClass, tokenId, preview = false, masked = false, thresholds = []) {
+function makeInitiativeResourceStatus(label, currentValue, barMax, hardLimit, hurtAt, resourceClass, tokenId, preview = false, masked = false, normalValue = 0) {
   const current = Math.max(0, Number.parseInt(currentValue, 10) || 0);
-  const max = Math.max(0, Number.parseInt(maxValue, 10) || 0);
+  const max = Math.max(1, Number.parseInt(barMax, 10) || 1);
+  const finalMax = Math.max(max + 1, Number.parseInt(hardLimit, 10) || max + 1);
   const item = document.createElement("div");
   item.className = `initiative-detail-resource initiative-detail-${resourceClass}`;
-  const title = document.createElement("span");
-  title.className = "initiative-detail-resource-label";
-  title.textContent = label;
-  const track = document.createElement("div");
-  track.className = "initiative-detail-resource-track";
-  const backgroundColor = resourceClass === "wounds" ? displaySettings.woundsBackgroundColor : displaySettings.stressBackgroundColor;
-  const backgroundMatch = /^#([0-9a-f]{6})$/i.exec(String(backgroundColor ?? ""));
-  if (backgroundMatch) {
-    const hex = backgroundMatch[1];
-    track.style.backgroundColor = `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, 0.25)`;
-    track.style.borderColor = `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, 0.45)`;
-  }
-  const fill = document.createElement("span");
-  fill.className = "initiative-detail-resource-fill";
-  fill.style.width = `${max > 0 ? Math.min(100, current / max * 100) : 0}%`;
-  fill.style.backgroundColor = resourceClass === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor;
-  const addThresholdMarkers = () => {
-    for (const threshold of thresholds) {
-      const numeric = Math.max(0, Number(threshold) || 0);
-      if (max <= 0 || numeric <= 0 || numeric >= max) continue;
-      const marker = document.createElement("span");
-      marker.className = "initiative-detail-resource-marker";
-      marker.style.left = `${Math.min(100, numeric / max * 100)}%`;
-      marker.setAttribute("aria-hidden", "true");
-      track.append(marker);
-    }
-  };
   if (masked) {
-    track.classList.add("initiative-detail-resource-track-masked");
     const line = document.createElement("div");
-    line.className = "initiative-detail-resource-line";
+    line.className = "initiative-detail-resource-line initiative-detail-resource-line-masked";
+    const title = document.createElement("span");
+    title.className = "initiative-detail-resource-label";
+    title.textContent = label;
     line.append(title);
-    track.append(fill, line);
-    addThresholdMarkers();
-    item.append(track);
+    item.append(line);
+    return item;
+  }
+  if (max <= 0) {
+    item.classList.add("initiative-detail-resource-placeholder");
+    item.setAttribute("aria-hidden", "true");
     return item;
   }
   const line = document.createElement("div");
   line.className = "initiative-detail-resource-line";
-  const controls = makeResourceValueControls(tokenId, resourceClass, `${current}/${max}`, preview);
+  const title = document.createElement(preview ? "span" : "button");
+  title.className = `initiative-detail-resource-label${preview ? "" : " initiative-detail-resource-label-button"}`;
+  title.textContent = label;
+  if (!preview) {
+    title.type = "button";
+    title.dataset.openInitiativeResourceSettings = resourceClass;
+    title.dataset.resourceTokenId = tokenId ?? "";
+    title.title = `Configurar limites de ${label}`;
+    title.setAttribute("aria-label", title.title);
+  }
+  const controls = makeResourceValueControls(tokenId, resourceClass, current, max, finalMax, normalValue, preview);
+  const track = document.createElement("div");
+  track.className = "initiative-detail-resource-track";
+  const fill = document.createElement("span");
+  fill.className = "initiative-detail-resource-fill";
+  fill.style.width = `${Math.min(100, current / max * 100)}%`;
+  fill.style.backgroundColor = resourceClass === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor;
+  const hurtMarker = document.createElement("span");
+  hurtMarker.className = "initiative-detail-resource-marker";
+  const hurtPercent = Math.min(100, Math.max(0, Number(hurtAt) / max * 100));
+  hurtMarker.style.left = hurtPercent >= 100 ? "calc(100% - 2px)" : `${hurtPercent}%`;
+  const maxMarker = document.createElement("span");
+  maxMarker.className = "initiative-detail-resource-marker";
+  maxMarker.style.left = "calc(100% - 2px)";
   line.append(title, controls);
-  track.append(fill, line);
-  addThresholdMarkers();
+  track.append(fill, hurtMarker, maxMarker, line);
   item.append(track);
   return item;
 }
@@ -793,16 +858,22 @@ function makeInitiativeDetails(item, preview = false, masked = false) {
   const resourceGroup = document.createElement("div");
   resourceGroup.className = "initiative-details-resources";
 
-  const woundsCurrent = Math.max(0, Number(sheet.resourceOneNormal ?? sheet.resourceOneCurrent ?? 0) || 0)
-    + Math.max(0, Number(sheet.resourceOneChronic ?? 0) || 0);
-  const woundsMax = Math.max(0, Number(sheet.resourceOneDead ?? 20) || 0);
-  const stressCurrent = Math.max(0, Number(sheet.resourceTwoNormal ?? sheet.resourceTwoCurrent ?? 0) || 0)
-    + Math.max(0, Number(sheet.resourceTwoChronic ?? 0) || 0);
-  const stressMax = Math.max(0, Number(sheet.resourceTwoInsano ?? 20) || 0);
+  const woundsNormal = Math.max(0, Number(sheet.resourceOneNormal ?? sheet.resourceOneCurrent ?? 0) || 0);
+  const woundsChronic = Math.max(0, Number(sheet.resourceOneChronic ?? 0) || 0);
+  const woundsCurrent = woundsNormal + woundsChronic;
+  const woundsHurt = Math.max(1, Number(sheet.resourceOneHurtAt ?? 5) || 5);
+  const woundsMax = Math.max(1, Number(sheet.resourceOneUnconscious ?? sheet.resourceOneUnconsciousAt ?? 10) || 10);
+  const woundsHardLimit = Math.max(woundsMax + 1, Number(sheet.resourceOneDeadAt ?? 20) || 20);
+  const stressNormal = Math.max(0, Number(sheet.resourceTwoNormal ?? sheet.resourceTwoCurrent ?? 0) || 0);
+  const stressChronic = Math.max(0, Number(sheet.resourceTwoChronic ?? 0) || 0);
+  const stressCurrent = stressNormal + stressChronic;
+  const stressHurt = Math.max(1, Number(sheet.resourceTwoStressedAt ?? 5) || 5);
+  const stressMax = Math.max(1, Number(sheet.resourceTwoUnconscious ?? sheet.resourceTwoLosingMindAt ?? 10) || 10);
+  const stressHardLimit = Math.max(stressMax + 1, Number(sheet.resourceTwoInsaneAt ?? 20) || 20);
 
   resourceGroup.append(
-    makeInitiativeResourceStatus("Ferimentos", woundsCurrent, woundsMax, "wounds", tokenId, preview, masked, [sheet.resourceOneWounded ?? 5, sheet.resourceOneUnconscious ?? 10]),
-    makeInitiativeResourceStatus("Estresses", stressCurrent, stressMax, "stress", tokenId, preview, masked, [sheet.resourceTwoStressed ?? 5, sheet.resourceTwoEnlouquecendo ?? sheet.resourceTwoUnconscious ?? 10]),
+    makeInitiativeResourceStatus("Ferimentos", woundsCurrent, woundsMax, woundsHardLimit, woundsHurt, "wounds", tokenId, preview, masked, woundsNormal),
+    makeInitiativeResourceStatus("Estresses", stressCurrent, stressMax, stressHardLimit, stressHurt, "stress", tokenId, preview, masked, stressNormal),
   );
   details.append(resourceGroup);
   if (masked) {
@@ -1411,6 +1482,107 @@ async function setInitiativeValue(tokenId, value) {
   }
 }
 
+async function openInitiativeResourceSettings(tokenId) {
+  if (!tokenId || !initiativeResourceSettingsDialog) return;
+  try {
+    const items = await OBR.scene.items.getItems([tokenId]);
+    const item = items[0];
+    const sheet = item?.metadata?.[SHEET_KEY];
+    if (!item || !sheet || typeof sheet !== "object") {
+      OBR.notification.show("Este token não possui uma ficha de A&A salva.");
+      return;
+    }
+    if (currentRole !== "GM" && Boolean(sheet.hideFromPlayers)) return;
+    editingResourceTokenId = tokenId;
+    const values = {
+      "detail-config-wounds-hurt": sheet.resourceOneHurtAt ?? 5,
+      "detail-config-wounds-unconscious": sheet.resourceOneUnconscious ?? sheet.resourceOneUnconsciousAt ?? 10,
+      "detail-config-wounds-dead": sheet.resourceOneDeadAt ?? 20,
+      "detail-config-stress-stressed": sheet.resourceTwoStressedAt ?? 5,
+      "detail-config-stress-losing-mind": sheet.resourceTwoUnconscious ?? sheet.resourceTwoLosingMindAt ?? 10,
+      "detail-config-stress-insane": sheet.resourceTwoInsaneAt ?? 20,
+    };
+    for (const [id, value] of Object.entries(values)) byId(id).value = String(value);
+    initiativeResourceSettingsDraft = {
+      woundsChronic: Math.max(0, Number.parseInt(sheet.resourceOneChronic ?? 0, 10) || 0),
+      stressChronic: Math.max(0, Number.parseInt(sheet.resourceTwoChronic ?? 0, 10) || 0),
+    };
+    byId("detail-config-wounds-chronic-value").textContent = String(initiativeResourceSettingsDraft.woundsChronic);
+    byId("detail-config-stress-chronic-value").textContent = String(initiativeResourceSettingsDraft.stressChronic);
+    initiativeResourceSettingsDialog.showModal();
+  } catch (error) {
+    console.error("A&A: não foi possível abrir os limites pela iniciativa.", error);
+    OBR.notification.show("Não foi possível abrir as configurações deste personagem.");
+  }
+}
+
+async function saveInitiativeResourceSettings() {
+  const tokenId = editingResourceTokenId;
+  if (!tokenId) return;
+  const mappings = [
+    ["resourceOneHurtAt", "detail-config-wounds-hurt"],
+    ["resourceOneUnconscious", "detail-config-wounds-unconscious"],
+    ["resourceOneDeadAt", "detail-config-wounds-dead"],
+    ["resourceTwoStressedAt", "detail-config-stress-stressed"],
+    ["resourceTwoUnconscious", "detail-config-stress-losing-mind"],
+    ["resourceTwoInsaneAt", "detail-config-stress-insane"],
+  ];
+  const values = mappings.map(([, id]) => Number.parseInt(byId(id).value, 10));
+  if (values.some((value) => !Number.isInteger(value) || value < 1 || value > 9999)) {
+    OBR.notification.show("Os limites devem ser números inteiros entre 1 e 9999.");
+    return;
+  }
+  const [woundsHurt, woundsUnconscious, woundsDead, stressStressed, stressLosingMind, stressInsane] = values;
+  if (!(woundsHurt < woundsUnconscious && woundsUnconscious < woundsDead && stressStressed < stressLosingMind && stressLosingMind < stressInsane)) {
+    OBR.notification.show("Os limites devem estar em ordem crescente.");
+    return;
+  }
+  const saveButton = byId("save-initiative-resource-settings");
+  saveButton.disabled = true;
+  try {
+    const items = await OBR.scene.items.getItems([tokenId]);
+    const item = items[0];
+    const sheet = item?.metadata?.[SHEET_KEY];
+    if (!item || !sheet || (currentRole !== "GM" && sheet.hideFromPlayers)) return;
+    const normalWounds = Math.max(0, Number.parseInt(sheet.resourceOneNormal ?? 0, 10) || 0);
+    const normalStress = Math.max(0, Number.parseInt(sheet.resourceTwoNormal ?? 0, 10) || 0);
+    const woundsChronic = Math.min(initiativeResourceSettingsDraft.woundsChronic, Math.max(0, woundsDead - normalWounds));
+    const stressChronic = Math.min(initiativeResourceSettingsDraft.stressChronic, Math.max(0, stressInsane - normalStress));
+    await OBR.scene.items.updateItems([item], (updatedItems) => {
+      for (const target of updatedItems) {
+        const saved = target.metadata?.[SHEET_KEY];
+        if (!saved || typeof saved !== "object") continue;
+        const next = { ...saved };
+        mappings.forEach(([key], index) => { next[key] = values[index]; });
+        next.resourceOneChronic = woundsChronic;
+        next.resourceTwoChronic = stressChronic;
+        target.metadata = { ...(target.metadata ?? {}), [SHEET_KEY]: next };
+      }
+    });
+    initiativeResourceSettingsDialog.close();
+    await refreshInitiativeView();
+    OBR.notification.show("Limites do personagem atualizados.");
+  } catch (error) {
+    console.error("A&A: não foi possível salvar os limites do personagem.", error);
+    OBR.notification.show("Não foi possível salvar os limites deste personagem.");
+  } finally {
+    saveButton.disabled = false;
+  }
+}
+
+byId("cancel-initiative-resource-settings")?.addEventListener("click", () => initiativeResourceSettingsDialog?.close());
+initiativeResourceSettingsDialog?.addEventListener("click", (event) => { if (event.target === initiativeResourceSettingsDialog) initiativeResourceSettingsDialog.close(); });
+byId("save-initiative-resource-settings")?.addEventListener("click", () => void saveInitiativeResourceSettings());
+document.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const button = target?.closest("[data-detail-chronic]");
+  if (!button) return;
+  const key = button.dataset.detailChronic === "wounds" ? "woundsChronic" : "stressChronic";
+  initiativeResourceSettingsDraft[key] = Math.max(0, Math.min(9999, initiativeResourceSettingsDraft[key] + (Number.parseInt(button.dataset.resourceDelta, 10) || 0)));
+  const outputId = key === "woundsChronic" ? "detail-config-wounds-chronic-value" : "detail-config-stress-chronic-value";
+  byId(outputId).textContent = String(initiativeResourceSettingsDraft[key]);
+});
+
 async function adjustTokenResource(tokenId, resourceClass, delta) {
   if (!showDetailedInitiative) return;
   const resourceFields = resourceClass === "wounds"
@@ -1427,10 +1599,7 @@ async function adjustTokenResource(tokenId, resourceClass, delta) {
       OBR.notification.show("Este token não possui uma ficha de A&A salva.");
       return;
     }
-    if (currentRole !== "GM" && sheet.hideFromPlayers) {
-      OBR.notification.show("Os recursos deste token estão ocultos pelo mestre.");
-      return;
-    }
+    if (currentRole !== "GM" && Boolean(sheet.hideFromPlayers)) return;
     await OBR.scene.items.updateItems([item], (updatedItems) => {
       for (const target of updatedItems) {
         const storedSheet = target.metadata?.[SHEET_KEY];
@@ -1438,15 +1607,13 @@ async function adjustTokenResource(tokenId, resourceClass, delta) {
         const nextSheet = { ...storedSheet };
         const normal = Math.max(0, Number.parseInt(nextSheet[resourceFields.normal] ?? 0, 10) || 0);
         const chronic = Math.max(0, Number.parseInt(nextSheet[resourceFields.chronic] ?? 0, 10) || 0);
-        if (delta > 0) {
-          nextSheet[resourceFields.normal] = normal + delta;
-        } else {
-          let remaining = Math.abs(delta);
-          const removeNormal = Math.min(normal, remaining);
-          nextSheet[resourceFields.normal] = normal - removeNormal;
-          remaining -= removeNormal;
-          nextSheet[resourceFields.chronic] = Math.max(0, chronic - remaining);
-        }
+        const hardLimit = resourceClass === "wounds"
+          ? Math.max(1, Number.parseInt(nextSheet.resourceOneDeadAt, 10) || 20)
+          : Math.max(1, Number.parseInt(nextSheet.resourceTwoInsaneAt, 10) || 20);
+        const nextNormal = delta > 0
+          ? Math.min(normal + delta, Math.max(0, hardLimit - chronic))
+          : Math.max(0, normal + delta);
+        nextSheet[resourceFields.normal] = nextNormal;
         target.metadata = { ...(target.metadata ?? {}), [SHEET_KEY]: nextSheet };
       }
     });
@@ -1888,6 +2055,11 @@ confirmClearLogButton.addEventListener("click", async () => {
 });
 
 initiativeList.addEventListener("click", (event) => {
+  const resourceSettingsButton = event.target.closest("[data-open-initiative-resource-settings]");
+  if (resourceSettingsButton) {
+    void openInitiativeResourceSettings(resourceSettingsButton.dataset.resourceTokenId);
+    return;
+  }
   const adjustButton = event.target.closest("[data-adjust-resource]");
   if (adjustButton) {
     const tokenId = adjustButton.dataset.resourceTokenId;

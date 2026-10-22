@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Protótipo experimental 0.46.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Protótipo experimental 0.47.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -25,7 +25,7 @@ A aba **CHAT** mostra até 20 mensagens e eventos públicos recentes: mensagens 
 
 O seletor de abas indica mensagens não lidas, e o ícone da extensão recebe um ponto branco enquanto houver mensagens novas. O contador considera eventos novos do CHAT e marca o histórico como lido quando a aba é aberta com o painel visível.
 
-Na iniciativa, clique no valor de iniciativa para editá-lo. O mestre pode ativar o status detalhado pelo botão de olho e configurar quais recursos, defesas e perícias passivas aparecem. As opções de ficha permitem apagar o token, limpar apenas os dados da ficha e importar uma ficha em JSON ou HTML e exportar uma ficha HTML editável para o navegador. Se o limite de Inconsciente de Ferimentos ou Estresses for zero, a respectiva barra não é exibida.
+Na iniciativa, clique no valor para editar a iniciativa. O mestre pode ativar o status detalhado pelo botão de olho e configurar quais recursos, defesas e perícias passivas aparecem. Todos os jogadores podem ajustar Ferimentos e Estresses dos tokens visíveis; tokens ocultos não oferecem controles de ajuste. As opções da ficha permitem apagar o token, limpar apenas os dados e importar/exportar fichas JSON ou HTML.
 
 ## Cabeçalho da ficha
 
@@ -39,13 +39,13 @@ Nas descrições de poderes e rituais, `[[Percepção]]` exibe o valor atual da 
 
 A ficha contém as 22 perícias de A&A 0.8 agrupadas em Resistências, Equipamentos e Especialidades. Os treinamentos I–V ficam salvos nos metadados da ficha do token.
 
-Ao clicar no nome da perícia, a extensão rola de 1 a 5 dados de dez faces conforme o treinamento, organiza os resultados em ordem decrescente e destaca todos os resultados 10. A rolagem é exibida em uma pequena janela separada da ficha. O resultado original é enviado por `OBR.broadcast` aos demais participantes conectados com a extensão ativa; todos veem exatamente os mesmos dados. Uma nova rolagem substitui a janela anterior.
+Ao clicar no nome da perícia, a extensão rola de 1 a 5 dados de dez faces conforme o treinamento, organiza os resultados em ordem decrescente e destaca todos os resultados 10. O resultado é enviado ao CHAT compartilhado; não há janela separada para rolagens. Os participantes conectados com a extensão ativa veem os mesmos dados.
 
 ## Ferimentos e Estresses
 
-Cada recurso tem três valores: **Normais**, **Crônicos** e **Inconsciente**. O número exibido na barra é a soma de Normais + Crônicos. O valor de Inconsciente determina o limite visual da barra; quando o total atual alcança ou ultrapassa esse limite, a barra fica cheia. O número mostrado dentro da barra apresenta apenas o total atual.
+Cada recurso soma os valores **Normais** e **Crônicos**. Os limites padrão são 5, 10 e 20: Machucado, Inconsciente e Morto para Ferimentos; Estressado, Enlouquecendo e Insano para Estresses. Clique no rótulo da barra para editar os limites ou ajustar Estresses Crônicos. O limite final determina a escala do preenchimento da barra.
 
-Dados antigos são migrados automaticamente: o antigo valor atual passa para Normais, Crônicos começa em zero e o antigo máximo passa para Inconsciente.
+Dados antigos são migrados automaticamente: o valor atual passa para Normais, os limiares novos recebem valores padrão e os limites personalizados podem ser ajustados no popup do recurso.
 
 ## Barras
 
@@ -132,10 +132,29 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 - Fundos de EVA, PRO e CON na iniciativa seguem as cores de personalização definidas nas configurações.
 - Popup de perícias permite escolher uma cor personalizada por perícia.
 - Botão de Iniciativa Detalhada disponível também para jogadores; os controles de alteração continuam restritos ao mestre.
-- Para jogadores, a área detalhada de tokens com a opção “Esconder” ativada exibe apenas o preenchimento das barras, sem rótulos ou valores, defesas ou perícias.
+- Para jogadores, tokens com informações ocultas mantêm os rótulos Ferimentos e Estresses, mas não exibem valores nem preenchimento proporcional das barras, defesas ou perícias.
 
 
-## Ficha HTML independente (versão 0.45.0)
+
+
+## Ajustes da versão 0.47.0
+
+- Pré-visualização interativa para personalizar nomes, barras e defesas.
+- Barras de Ferimentos e Estresses usam Inconsciente/Enlouquecendo como escala, com marcadores de estágio e limite final para impedir aumentos após Morto/Insano.
+- Popups de configuração dos limites acessíveis pela ficha e pela iniciativa detalhada, incluindo Ferimentos Crônicos e Estresses Crônicos.
+- Botões compactos de adicionar e contador de espaços do inventário em formato `X/Y`.
+
+## Ajustes da versão 0.46.0
+
+- Personalização individual do nome de cada token, incluindo tamanho de 0% a 100%, alinhamento, cor, fonte e opção de ocultar.
+- Barras de Ferimentos e Estresses com fundo mais translúcido e preenchimento mais saturado; controles horizontais também na ficha.
+- Limites configuráveis para Machucado, Inconsciente, Morto, Estressado, Enlouquecendo e Insano, além do ajuste de Estresses Crônicos. A configuração também alimenta as barras da iniciativa detalhada.
+- Jogadores podem ajustar Ferimentos e Estresses pela iniciativa detalhada, exceto em tokens com informações ocultas.
+- CHAT em ordem do mais recente para o mais antigo, com limite de 20 mensagens. Rolagens e usos de poderes/rituais são enviados apenas para o CHAT, sem popups separados.
+- Seções da ficha são recolhidas e expandidas clicando no próprio título.
+- Os novos controles de limites, recursos e aparência do nome também funcionam na ficha HTML independente; as alterações de aparência do token são aplicadas ao importar o HTML no Owlbear.
+
+## Ficha HTML independente (versão 0.47.0)
 
 - Em **Opções da ficha → Exportar ficha para navegador**, a extensão gera um único arquivo HTML com estrutura, estilos, editor e dados do personagem incorporados. Ele pode ser aberto diretamente no Chrome, Edge, Firefox ou outro navegador moderno, sem instalar programas ou manter conexão com o Owlbear.
 - A interface reaproveita a folha de estilos da extensão para manter o tema visual semelhante ao Owlbear. Nome, classe, organização, ocupação, evolução, Ferimentos, Estresses, defesas, treinamento das perícias, inventário, poderes, rituais, parâmetros, traumas e história podem ser editados. É possível adicionar e remover itens.

@@ -17,6 +17,28 @@
           </svg>
         </button>
       </nav>
+      <dialog id="initiative-resource-settings-dialog" class="confirm-dialog settings-edit-dialog" aria-labelledby="initiative-resource-settings-title">
+        <h2 id="initiative-resource-settings-title">Limites de Ferimentos e Estresses</h2>
+        <p>Estas configurações pertencem a este personagem e também são usadas na ficha.</p>
+        <section class="resource-config-section">
+            <h3>Ferimentos</h3>
+            <div class="resource-config-grid">
+              <div class="resource-config-labels"><span>Machucado</span><span>Inconsciente</span><span>Morto</span></div>
+              <div class="resource-config-values"><input id="detail-config-wounds-hurt" aria-label="Limite de Ferimentos para Machucado" type="number" min="1" max="9999" value="5" /><input id="detail-config-wounds-unconscious" aria-label="Limite de Ferimentos para Inconsciente" type="number" min="1" max="9999" value="10" /><input id="detail-config-wounds-dead" aria-label="Limite de Ferimentos para Morto" type="number" min="1" max="9999" value="20" /></div>
+            </div>
+            <div class="chronic-stepper-row"><span>Ferimentos Crônicos</span><div class="resource-tracker-stepper"><button type="button" data-detail-chronic="wounds" data-resource-delta="-1" aria-label="Diminuir Ferimentos Crônicos">‹</button><output id="detail-config-wounds-chronic-value">0</output><button type="button" data-detail-chronic="wounds" data-resource-delta="1" aria-label="Aumentar Ferimentos Crônicos">›</button></div></div>
+          </section>
+        <section class="resource-config-section">
+            <h3>Estresses</h3>
+            <div class="resource-config-grid">
+              <div class="resource-config-labels"><span>Estressado</span><span>Enlouquecendo</span><span>Insano</span></div>
+              <div class="resource-config-values"><input id="detail-config-stress-stressed" aria-label="Limite de Estresses para Estressado" type="number" min="1" max="9999" value="5" /><input id="detail-config-stress-losing-mind" aria-label="Limite de Estresses para Enlouquecendo" type="number" min="1" max="9999" value="10" /><input id="detail-config-stress-insane" aria-label="Limite de Estresses para Insano" type="number" min="1" max="9999" value="20" /></div>
+            </div>
+            <div class="chronic-stepper-row"><span>Estresses Crônicos</span><div class="resource-tracker-stepper"><button type="button" data-detail-chronic="stress" data-resource-delta="-1" aria-label="Diminuir Estresses Crônicos">‹</button><output id="detail-config-stress-chronic-value">0</output><button type="button" data-detail-chronic="stress" data-resource-delta="1" aria-label="Aumentar Estresses Crônicos">›</button></div></div>
+          </section>
+        <div class="confirm-dialog-actions"><button id="cancel-initiative-resource-settings" type="button" class="confirm-cancel">Cancelar</button><button id="save-initiative-resource-settings" type="button" class="confirm-destructive">Salvar</button></div>
+      </dialog>
+
       <section id="initiative-view" class="main-tab-panel">
         <header class="initiative-heading">
           <h2>Ordem de iniciativa</h2>
@@ -77,6 +99,19 @@
             </button>
           </div>
           <div id="token-appearance-content" class="collapsible-content">
+          <section id="token-appearance-preview" class="token-appearance-preview" aria-label="Pré-visualização interativa da aparência dos tokens">
+            <p>Clique em uma parte da pré-visualização para personalizá-la.</p>
+            <div class="appearance-preview-token">
+              <button type="button" class="appearance-preview-name" data-appearance-preview-target="names" title="Personalizar nome">Exemplo de personagem</button>
+              <button type="button" class="appearance-preview-bar appearance-preview-wounds" data-appearance-preview-target="bars" title="Personalizar barra de Ferimentos"><span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Ferimentos</span><strong>3/10</strong></button>
+              <button type="button" class="appearance-preview-bar appearance-preview-stress" data-appearance-preview-target="bars" title="Personalizar barra de Estresses"><span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Estresses</span><strong>2/10</strong></button>
+              <div class="appearance-preview-defenses">
+                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="evasion" title="Personalizar Evasão">EVA 12</button>
+                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="protection" title="Personalizar Proteção">PRO 3</button>
+                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="conviction" title="Personalizar Convicção">CON 8</button>
+              </div>
+            </div>
+          </section>
           <nav class="settings-subtabs" aria-label="Aparência dos tokens">
             <button class="settings-subtab active" type="button" data-token-settings-tab="bars" aria-selected="true">Barras</button>
             <button class="settings-subtab" type="button" data-token-settings-tab="defenses" aria-selected="false">Defesas</button>
@@ -90,7 +125,7 @@
                 <div class="settings-color-grid resource-color-grid">
                   <label class="settings-control settings-color-control" for="wounds-color">
                     <span>Preenchido</span>
-                    <input id="wounds-color" type="color" value="#bf4652" aria-label="Cor preenchida da barra de Ferimentos" />
+                    <input id="wounds-color" type="color" value="#c84b56" aria-label="Cor preenchida da barra de Ferimentos" />
                   </label>
                   <label class="settings-control settings-color-control" for="wounds-background-color">
                     <span>Fundo</span>
@@ -103,7 +138,7 @@
                 <div class="settings-color-grid resource-color-grid">
                   <label class="settings-control settings-color-control" for="stress-color">
                     <span>Preenchido</span>
-                    <input id="stress-color" type="color" value="#347fbd" aria-label="Cor preenchida da barra de Estresses" />
+                    <input id="stress-color" type="color" value="#397fc4" aria-label="Cor preenchida da barra de Estresses" />
                   </label>
                   <label class="settings-control settings-color-control" for="stress-background-color">
                     <span>Fundo</span>
@@ -208,8 +243,8 @@
 
           <div class="token-settings-panel" data-token-settings-panel="names" hidden>
             <label class="settings-control name-size-control" for="name-size">
-              <span>Tamanho: <output id="name-size-output">0%</output></span>
-              <input id="name-size" type="range" min="0" max="100" step="1" value="0" aria-label="Tamanho do nome, de zero a cem por cento" />
+              <span>Tamanho <output id="name-size-percent-value" for="name-size">0%</output></span>
+              <input id="name-size" type="range" min="0" max="100" step="1" value="0" />
             </label>
             <label class="settings-control" for="name-alignment">
               <span>Alinhamento</span>
@@ -279,6 +314,8 @@
             <button id="save-initiative-skill" type="button" class="confirm-destructive">Adicionar</button>
           </div>
         </dialog>
+
+
 
         <dialog id="reset-token-appearance-dialog" class="confirm-dialog" aria-labelledby="reset-token-appearance-title" aria-describedby="reset-token-appearance-description">
           <h2 id="reset-token-appearance-title">Restaurar aparência padrão?</h2>
