@@ -22,6 +22,11 @@
   let nameAppearance = null;
   let showTokenName = true;
   let resourceSettingsDraft = { woundsChronic: 0, stressChronic: 0 };
+  let defenseActiveDraft = false;
+  let editingEquipmentId = null;
+  let editingEquipmentCategory = "supply";
+  let editingEquipmentIsNew = false;
+  let attackingWeaponId = null;
 
   function setNotice(message, type = "info") {
     notice.textContent = message;
@@ -48,6 +53,53 @@
     return Number.isFinite(number) ? Math.min(5, Math.max(1, number)) : 1;
   }
 
+  function makeDefaultEquipment() {
+    return [
+      { id: "default-punch", defaultEquipmentKey: "punch", category: "weapon", name: "Punho", spaces: 0, description: "Multiataque, Marcial - Empunhadura: 1 Espaços: 0 Engates: 0 Discreta - Corporal: 1m - Aparar, Defletir.", weaponClass: "Marcial", skill: "armas-simples", damage: "Força", critical: "1", reactionEvasion: 0, reactionProtection: 0, reactionActive: false },
+      { id: "default-no-armor", defaultEquipmentKey: "no-armor", category: "armor", armorKind: "armadura", name: "Sem Armadura", spaces: 0, description: "Evasão 4 + Agilidade. Proteção = Fortitude. Espaços: 0, Engates: 0.", evasionBonus: 0, protectionBonus: 0, activeEvasion: 1, activeProtection: 0, equipped: true },
+    ];
+  }
+
+  function normalizeEquipment(items, initialized = false) {
+    const result = Array.isArray(items) ? items.filter((item) => item && typeof item === "object").map((item) => {
+      const category = ["weapon", "armor", "supply"].includes(item.category) ? item.category : "supply";
+      const int = (value) => Number.isFinite(Number.parseInt(value, 10)) ? Math.max(-999, Math.min(999, Number.parseInt(value, 10))) : 0;
+      const normalized = {
+        id: typeof item.id === "string" && item.id ? item.id : createId("item"),
+        defaultEquipmentKey: ["punch", "no-armor"].includes(item.defaultEquipmentKey) ? item.defaultEquipmentKey : "",
+        category, name: String(item.name ?? "").slice(0, 140), spaces: nonNegative(item.spaces, category === "supply" ? 1 : 0),
+        description: String(item.description ?? "").slice(0, 4000),
+        uses: item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(nonNegative(item.uses, 0)),
+        weaponClass: item.weaponClass === "Marcial" ? "Marcial" : "Simples", skill: item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
+        damage: String(item.damage ?? "").slice(0, 100), critical: String(item.critical ?? "").slice(0, 30),
+        armorKind: item.armorKind === "escudo" ? "escudo" : "armadura", equipped: Boolean(item.equipped),
+        evasionBonus: int(item.evasionBonus), protectionBonus: int(item.protectionBonus), activeEvasion: int(item.activeEvasion), activeProtection: int(item.activeProtection),
+        reactionEvasion: int(item.reactionEvasion), reactionProtection: int(item.reactionProtection), reactionActive: Boolean(item.reactionActive),
+      };
+      if (category !== "armor") normalized.equipped = true;
+      if (category !== "weapon") normalized.reactionActive = false;
+      if (category !== "supply") normalized.uses = "";
+      if (!normalized.defaultEquipmentKey && normalized.name.trim().toLowerCase() === "punho" && category === "weapon") normalized.defaultEquipmentKey = "punch";
+      if (!normalized.defaultEquipmentKey && normalized.name.trim().toLowerCase() === "sem armadura" && category === "armor") normalized.defaultEquipmentKey = "no-armor";
+      return normalized;
+    }) : [];
+    if (!initialized) {
+      for (const item of makeDefaultEquipment()) if (!result.some((existing) => existing.defaultEquipmentKey === item.defaultEquipmentKey)) result.push(item);
+    }
+    return result;
+  }
+
+  function calcDefenses(skills = [], inventory = [], defenseActive = false) {
+    const rank = (id) => rankValue(skills.find((skill) => skill.id === id)?.rank ?? 1);
+    const armor = inventory.filter((item) => item.category === "armor" && item.equipped);
+    const weapons = inventory.filter((item) => item.category === "weapon" && item.reactionActive);
+    return {
+      evasion: 4 + rank("agilidade") + armor.reduce((sum, item) => sum + item.evasionBonus + (defenseActive ? item.activeEvasion : 0), 0) + weapons.reduce((sum, item) => sum + item.reactionEvasion, 0),
+      protection: rank("fortitude") + armor.reduce((sum, item) => sum + item.protectionBonus + (defenseActive ? item.activeProtection : 0), 0) + weapons.reduce((sum, item) => sum + item.reactionProtection, 0),
+      conviction: rank("vontade"),
+    };
+  }
+
   function normalizeSheet(raw = {}) {
     const rawSkills = Array.isArray(raw.skills) ? raw.skills : [];
     const skillsMap = new Map(rawSkills.filter((item) => item && typeof item.id === "string").map((item) => [item.id, item]));
@@ -58,34 +110,26 @@
     }) : [];
     const normalizeAbilities = (items) => normalizeItems(items, "ability", { name: 140, traits: 500, description: 6000 });
     const normalizeProfiles = (items, prefix) => normalizeItems(items, prefix, { name: 140, description: 6000 });
-    return {
+    const skills = ALL_SKILLS.map((skill) => ({ ...skill, rank: rankValue(skillsMap.get(skill.id)?.rank ?? 1) }));
+    const defenseActive = Boolean(raw.defenseActive);
+    const inventory = normalizeEquipment(raw.inventory, Boolean(raw.equipmentDefaultsInitialized));
+    const normalized = {
       characterName: String(raw.characterName ?? "Personagem").trim() || "Personagem",
       characterClass: String(raw.characterClass ?? ""), organization: String(raw.organization ?? ""),
       occupation: String(raw.occupation ?? "").trim().slice(0, 100), evolution: nonNegative(raw.evolution, 1, 100),
-      resourceOneNormal: nonNegative(raw.resourceOneNormal ?? raw.resourceOneCurrent, 0),
-      resourceOneChronic: nonNegative(raw.resourceOneChronic, 0),
+      resourceOneNormal: nonNegative(raw.resourceOneNormal ?? raw.resourceOneCurrent, 0), resourceOneChronic: nonNegative(raw.resourceOneChronic, 0),
       resourceOneUnconscious: nonNegative(raw.resourceOneUnconsciousAt ?? raw.resourceOneUnconscious ?? raw.resourceOneMax, 10),
-      resourceOneHurtAt: Math.max(1, nonNegative(raw.resourceOneHurtAt, 5)),
-      resourceOneDeadAt: Math.max(1, nonNegative(raw.resourceOneDeadAt, 20)),
-      resourceTwoNormal: nonNegative(raw.resourceTwoNormal ?? raw.resourceTwoCurrent, 0),
-      resourceTwoChronic: nonNegative(raw.resourceTwoChronic, 0),
+      resourceOneHurtAt: Math.max(1, nonNegative(raw.resourceOneHurtAt, 5)), resourceOneDeadAt: Math.max(1, nonNegative(raw.resourceOneDeadAt, 20)),
+      resourceTwoNormal: nonNegative(raw.resourceTwoNormal ?? raw.resourceTwoCurrent, 0), resourceTwoChronic: nonNegative(raw.resourceTwoChronic, 0),
       resourceTwoUnconscious: nonNegative(raw.resourceTwoLosingMindAt ?? raw.resourceTwoUnconsciousAt ?? raw.resourceTwoUnconscious ?? raw.resourceTwoMax, 10),
-      resourceTwoStressedAt: Math.max(1, nonNegative(raw.resourceTwoStressedAt, 5)),
-      resourceTwoInsaneAt: Math.max(1, nonNegative(raw.resourceTwoInsaneAt, 20)),
-      evasion: optionalNumber(raw.evasion), protection: optionalNumber(raw.protection), conviction: optionalNumber(raw.conviction),
+      resourceTwoStressedAt: Math.max(1, nonNegative(raw.resourceTwoStressedAt, 5)), resourceTwoInsaneAt: Math.max(1, nonNegative(raw.resourceTwoInsaneAt, 20)),
       hideFromPlayers: Boolean(raw.hideFromPlayers), showTokenName: raw.showTokenName !== false,
       nameAppearance: raw.nameAppearance && typeof raw.nameAppearance === "object" ? raw.nameAppearance : null,
-      skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankValue(skillsMap.get(skill.id)?.rank ?? 1) })),
-      inventorySpaces: nonNegative(raw.inventorySpaces ?? raw.inventoryMaxSpaces, 0),
-      inventory: Array.isArray(raw.inventory) ? raw.inventory.filter((item) => item && typeof item === "object").map((item) => ({
-        id: typeof item.id === "string" && item.id ? item.id : createId("item"),
-        name: String(item.name ?? "").slice(0, 140), spaces: nonNegative(item.spaces, 1), quantity: 1,
-        description: String(item.description ?? "").slice(0, 4000),
-      })) : [],
+      skills, inventorySpaces: nonNegative(raw.inventorySpaces ?? raw.inventoryMaxSpaces, 0), inventory, equipmentDefaultsInitialized: true, defenseActive,
       powers: normalizeAbilities(raw.powers), rituals: normalizeAbilities(raw.rituals),
-      parameters: normalizeProfiles(raw.parameters, "parameter"), traumas: normalizeProfiles(raw.traumas, "trauma"),
-      history: String(raw.history ?? "").slice(0, 16000),
+      parameters: normalizeProfiles(raw.parameters, "parameter"), traumas: normalizeProfiles(raw.traumas, "trauma"), history: String(raw.history ?? "").slice(0, 16000),
     };
+    return { ...normalized, ...calcDefenses(skills, inventory, defenseActive) };
   }
 
   function normalizeNameAppearance(raw = {}, fallback = {}) {
@@ -307,7 +351,7 @@
 
   function attachStaticEditors() {
     for (const editor of [...form.querySelectorAll('input[type="text"], textarea')]) {
-      if (editor.dataset.identityPreviewField === "true" || editor.closest(".formatted-editor")) continue;
+      if (editor.dataset.identityPreviewField === "true" || editor.closest("#equipment-dialog, #weapon-attack-dialog") || editor.closest(".formatted-editor")) continue;
       if (editor instanceof HTMLTextAreaElement) editor.dataset.formatReplace = "true";
       const parent = editor.parentNode;
       const nextSibling = editor.nextSibling;
@@ -379,22 +423,196 @@
     byId("skills-list").replaceChildren(fragment);
   }
 
-  function renderInventory(items) {
-    const container = byId("inventory-list"); const fragment = document.createDocumentFragment();
-    if (!items.length) { const empty = document.createElement("p"); empty.className = "empty-state"; empty.textContent = "Nenhum item cadastrado."; fragment.append(empty); }
-    for (const item of items) {
-      const card = document.createElement("article"); card.className = "inventory-entry"; card.dataset.inventoryCard = "true"; card.dataset.inventoryId = item.id;
-      const top = document.createElement("div"); top.className = "inventory-entry-top";
-      const name = createInput(item.name, { placeholder: "Nome do item", maxLength: 140, dataset: { inventoryField: "name" }, replace: true }); name.querySelector("input").setAttribute("aria-label", "Nome do item");
-      const spaces = createInput(String(item.spaces ?? 1), { type: "number", min: 0, max: 9999, dataset: { inventoryField: "spaces" }, className: "inventory-item-spaces" }); spaces.setAttribute("aria-label", "Espaços ocupados pelo item"); spaces.title = "Espaços ocupados"; spaces.hidden = true;
-      const spacesPreview = smallButton(`${item.spaces ?? 1} esp.`, "inventory-spaces-preview", "editSpaces", "Clique para editar os espaços ocupados");
-      const spacesField = document.createElement("div"); spacesField.className = "inventory-number-field"; spacesField.append(spacesPreview, spaces);
-      const remove = smallButton("×", "remove-entry-button remove-icon-button", "removeInventory", "Remover item"); remove.setAttribute("aria-label", "Remover item");
-      top.append(name, spacesField, remove);
-      const description = createTextarea(item.description, { placeholder: "Observações ou detalhes do item", rows: 2, maxLength: 4000, dataset: { inventoryField: "description" } }); description.querySelector("textarea").setAttribute("aria-label", "Descrição do item");
-      card.append(top, description); fragment.append(card);
+  function updateDefenseDisplay(sheet = null) {
+    const source = sheet ?? { skills: readSheetFromForm().skills, inventory: readEquipmentList(), defenseActive: defenseActiveDraft };
+    const values = calcDefenses(source.skills, source.inventory, source.defenseActive);
+    for (const [key, output, input] of [["evasion", "defense-evasion-value", "character-evasion"], ["protection", "defense-protection-value", "character-protection"], ["conviction", "defense-conviction-value", "character-conviction"]]) {
+      if (byId(output)) byId(output).textContent = String(values[key]);
+      if (byId(input)) byId(input).value = String(values[key]);
     }
-    container.replaceChildren(fragment); updateInventorySpaceTotal();
+    const button = byId("defense-active-toggle");
+    const status = byId("defense-active-status");
+    if (button) {
+      button.classList.toggle("is-active", Boolean(source.defenseActive));
+      button.setAttribute("aria-pressed", String(Boolean(source.defenseActive)));
+      button.textContent = source.defenseActive ? "Defesa Ativa · Desativar" : "Defesa Ativa";
+    }
+    if (status) {
+      const armor = source.inventory.filter((item) => item.category === "armor" && item.equipped);
+      const eva = source.defenseActive ? armor.reduce((sum, item) => sum + item.activeEvasion, 0) : 0;
+      const pro = source.defenseActive ? armor.reduce((sum, item) => sum + item.activeProtection, 0) : 0;
+      status.hidden = !source.defenseActive;
+      status.textContent = `Bônus ativos: EVA ${eva >= 0 ? "+" : ""}${eva} · PRO ${pro >= 0 ? "+" : ""}${pro}`;
+    }
+  }
+
+  function renderInventory(items) {
+    const normalized = normalizeEquipment(items, true);
+    const lists = { weapon: byId("weapons-list"), armor: byId("armor-list"), supply: byId("supplies-list") };
+    for (const [category, container] of Object.entries(lists)) {
+      if (!container) continue;
+      const fragment = document.createDocumentFragment();
+      const matches = normalized.filter((item) => item.category === category);
+      if (!matches.length) {
+        const empty = document.createElement("p"); empty.className = "empty-state equipment-empty-state";
+        empty.textContent = category === "weapon" ? "Nenhuma arma." : category === "armor" ? "Nenhuma armadura ou escudo." : "Nenhum suprimento.";
+        fragment.append(empty);
+      }
+      for (const item of matches) {
+        const card = document.createElement("article"); card.className = `equipment-card equipment-card-${category}`;
+        card.dataset.inventoryCard = "true"; card.dataset.inventoryId = item.id; card.dataset.inventoryCategory = category; card._equipmentData = { ...item };
+        const spaces = document.createElement("input"); spaces.type = "hidden"; spaces.dataset.inventoryField = "spaces"; spaces.value = String(item.spaces);
+        const main = document.createElement("button"); main.type = "button"; main.className = "equipment-card-main"; main.dataset.equipmentAction = "edit";
+        const title = document.createElement("span"); title.className = "equipment-card-title"; title.textContent = item.name || "Novo item";
+        const meta = document.createElement("span"); meta.className = "equipment-card-meta";
+        if (category === "weapon") {
+          const reaction = item.reactionEvasion || item.reactionProtection ? ` · Reação EVA ${item.reactionEvasion >= 0 ? "+" : ""}${item.reactionEvasion} · PRO ${item.reactionProtection >= 0 ? "+" : ""}${item.reactionProtection}` : "";
+          meta.textContent = `${item.weaponClass} · ${item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples"} · Dano ${item.damage || "—"} · Críticos ${item.critical || "—"}${reaction}`;
+        } else if (category === "armor") meta.textContent = item.defaultEquipmentKey === "no-armor" ? "Evasão 4 + Agilidade · Proteção Fortitude · Defesa ativa EVA +1" : `${item.armorKind === "escudo" ? "Escudo" : "Armadura"} · EVA ${item.evasionBonus >= 0 ? "+" : ""}${item.evasionBonus} · PRO ${item.protectionBonus >= 0 ? "+" : ""}${item.protectionBonus} · Defesa ativa EVA ${item.activeEvasion >= 0 ? "+" : ""}${item.activeEvasion} · PRO ${item.activeProtection >= 0 ? "+" : ""}${item.activeProtection}${item.equipped ? " · Em uso" : ""}`;
+        else meta.textContent = item.description || "";
+        main.append(title, meta);
+        const actions = document.createElement("div"); actions.className = "equipment-card-actions";
+        const addAction = (label, action, className = "equipment-action-button") => { const button = smallButton(label, className, "equipmentAction"); button.dataset.equipmentAction = action; actions.append(button); return button; };
+        if (category === "weapon") {
+          addAction("Atacar", "attack", "equipment-action-button equipment-attack-button");
+          if (item.reactionEvasion || item.reactionProtection) addAction(item.reactionActive ? "Reação ativa" : "Reagir", "reaction");
+        } else if (category === "armor") {
+          if (item.defaultEquipmentKey === "no-armor") { const badge = document.createElement("span"); badge.className = "equipment-state-badge"; badge.textContent = "Padrão"; actions.append(badge); }
+          else addAction(item.equipped ? "Em uso" : "Equipar", "toggle-equipped", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`);
+        }
+        else if (String(item.uses ?? "").trim() !== "") {
+          addAction("−", "uses-down", "equipment-uses-step"); const count = document.createElement("output"); count.className = "equipment-uses-count"; count.textContent = item.uses; actions.append(count); addAction("+", "uses-up", "equipment-uses-step");
+        }
+        const remove = smallButton("×", "remove-entry-button remove-icon-button equipment-remove-button", "removeInventory", "Remover item"); actions.append(remove);
+        card.append(spaces, main, actions); fragment.append(card);
+      }
+      container.replaceChildren(fragment);
+    }
+    updateInventorySpaceTotal();
+    updateDefenseDisplay();
+  }
+
+  function readEquipmentList() {
+    return [...byId("inventory-list").querySelectorAll("[data-inventory-card]")].map((card) => {
+      const item = card._equipmentData ?? {};
+      const spaces = card.querySelector('[data-inventory-field="spaces"]');
+      return { ...item, id: card.dataset.inventoryId || item.id || createId("item"), spaces: spaces ? nonNegative(spaces.value, 0) : nonNegative(item.spaces, 0) };
+    });
+  }
+
+  function openEquipmentEditor(category, item, { isNew = false } = {}) {
+    if (!item) return;
+    editingEquipmentId = item.id; editingEquipmentCategory = category; editingEquipmentIsNew = isNew;
+    byId("equipment-dialog-title").textContent = category === "weapon" ? "Arma" : category === "armor" ? "Armadura ou escudo" : "Suprimento";
+    byId("equipment-name").value = item.name ?? ""; byId("equipment-spaces").value = String(item.spaces ?? (category === "supply" ? 1 : 0));
+    byId("equipment-description").value = item.description ?? "";
+    byId("weapon-editor-fields").hidden = category !== "weapon"; byId("armor-editor-fields").hidden = category !== "armor"; byId("supply-editor-fields").hidden = category !== "supply";
+    byId("equipment-weapon-class").value = item.weaponClass === "Marcial" ? "Marcial" : "Simples";
+    byId("equipment-weapon-skill").value = item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
+    byId("equipment-damage").value = item.damage ?? ""; byId("equipment-critical").value = item.critical ?? "";
+    byId("equipment-reaction-evasion").value = String(item.reactionEvasion ?? 0); byId("equipment-reaction-protection").value = String(item.reactionProtection ?? 0);
+    byId("equipment-armor-kind").value = item.armorKind === "escudo" ? "escudo" : "armadura"; byId("equipment-equipped").checked = Boolean(item.equipped);
+    byId("equipment-evasion-bonus").value = String(item.evasionBonus ?? 0); byId("equipment-protection-bonus").value = String(item.protectionBonus ?? 0);
+    byId("equipment-active-evasion").value = String(item.activeEvasion ?? 0); byId("equipment-active-protection").value = String(item.activeProtection ?? 0);
+    byId("equipment-uses").value = item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(item.uses);
+    byId("equipment-dialog").showModal(); byId("equipment-name").focus();
+  }
+
+  function addEquipment(category) {
+    const sheet = readSheetFromForm();
+    const item = category === "weapon"
+      ? { id: createId("item"), category, name: "", spaces: 0, weaponClass: "Simples", skill: "armas-simples", damage: "", critical: "", reactionEvasion: 0, reactionProtection: 0, description: "" }
+      : category === "armor"
+        ? { id: createId("item"), category, name: "", spaces: 0, armorKind: "armadura", equipped: false, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, description: "" }
+        : { id: createId("item"), category: "supply", name: "", spaces: 1, uses: "", description: "" };
+    sheet.inventory.push(item); renderInventory(sheet.inventory); openEquipmentEditor(category, item, { isNew: true });
+  }
+
+  function saveEquipmentEditor() {
+    const name = byId("equipment-name").value.trim();
+    if (!name) { setNotice("Informe o nome do equipamento.", "error"); byId("equipment-name").focus(); return; }
+    if (editingEquipmentCategory === "weapon" && (!byId("equipment-damage").value.trim() || byId("equipment-critical").value.trim() === "")) { setNotice("Preencha Dano e Críticos da arma.", "error"); return; }
+    const entries = readEquipmentList();
+    const current = entries.find((item) => item.id === editingEquipmentId); if (!current) return;
+    const item = { ...current, name: name.slice(0, 140), spaces: nonNegative(byId("equipment-spaces").value, 0), description: byId("equipment-description").value.slice(0, 4000) };
+    if (editingEquipmentCategory === "weapon") Object.assign(item, {
+      weaponClass: byId("equipment-weapon-class").value === "Marcial" ? "Marcial" : "Simples",
+      skill: byId("equipment-weapon-skill").value === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
+      damage: byId("equipment-damage").value.trim(), critical: String(nonNegative(byId("equipment-critical").value, 0, 99)),
+      reactionEvasion: Number.parseInt(byId("equipment-reaction-evasion").value, 10) || 0, reactionProtection: Number.parseInt(byId("equipment-reaction-protection").value, 10) || 0,
+    });
+    if (editingEquipmentCategory === "armor") {
+      item.armorKind = byId("equipment-armor-kind").value === "escudo" ? "escudo" : "armadura"; item.equipped = byId("equipment-equipped").checked;
+      item.evasionBonus = Number.parseInt(byId("equipment-evasion-bonus").value, 10) || 0; item.protectionBonus = Number.parseInt(byId("equipment-protection-bonus").value, 10) || 0;
+      item.activeEvasion = Number.parseInt(byId("equipment-active-evasion").value, 10) || 0; item.activeProtection = Number.parseInt(byId("equipment-active-protection").value, 10) || 0;
+      if (item.equipped && item.armorKind !== "escudo") for (const other of entries) if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
+    }
+    if (editingEquipmentCategory === "supply") item.uses = String(byId("equipment-uses").value).trim() === "" ? "" : String(nonNegative(byId("equipment-uses").value, 0));
+    const next = entries.map((entry) => entry.id === item.id ? item : entry);
+    if (item.category === "armor" && item.equipped && item.armorKind !== "escudo") for (const other of next) if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
+    if (item.category === "armor") {
+      const hasBodyArmor = next.some((entry) => entry.category === "armor" && entry.armorKind !== "escudo" && entry.equipped && entry.defaultEquipmentKey !== "no-armor");
+      for (const entry of next) if (entry.defaultEquipmentKey === "no-armor") entry.equipped = !hasBodyArmor;
+    }
+    renderInventory(next); editingEquipmentIsNew = false; byId("equipment-dialog").close(); setNotice("Equipamento atualizado. Clique em Salvar para exportar a ficha.", "info");
+  }
+
+  function cancelEquipmentEditor() {
+    if (editingEquipmentIsNew && editingEquipmentId) renderInventory(readEquipmentList().filter((item) => item.id !== editingEquipmentId));
+    editingEquipmentIsNew = false; editingEquipmentId = null;
+    if (byId("equipment-dialog").open) byId("equipment-dialog").close();
+  }
+
+  function modifyEquipment(card, action) {
+    if (!card?._equipmentData) return;
+    const entries = readEquipmentList(); const item = entries.find((entry) => entry.id === card.dataset.inventoryId); if (!item) return;
+    if (action === "toggle-equipped") {
+      if (item.defaultEquipmentKey === "no-armor") return;
+      item.equipped = !item.equipped;
+      if (item.equipped && item.armorKind !== "escudo") for (const other of entries) if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
+      const hasBodyArmor = entries.some((entry) => entry.category === "armor" && entry.armorKind !== "escudo" && entry.equipped && entry.defaultEquipmentKey !== "no-armor");
+      for (const entry of entries) if (entry.defaultEquipmentKey === "no-armor") entry.equipped = !hasBodyArmor;
+    } else if (action === "reaction") item.reactionActive = !item.reactionActive;
+    else if (action === "uses-down" || action === "uses-up") {
+      if (String(item.uses ?? "").trim() === "") return;
+      item.uses = String(Math.max(0, Math.min(9999, Number.parseInt(item.uses, 10) + (action === "uses-up" ? 1 : -1))));
+    } else if (action === "remove") {
+      renderInventory(entries.filter((entry) => entry.id !== item.id)); return;
+    }
+    renderInventory(entries);
+  }
+
+  function attackWeapon(item) {
+    if (!item) return;
+    attackingWeaponId = item.id; byId("weapon-attack-title").textContent = `Atacar com ${item.name || "arma"}`;
+    byId("weapon-attack-dt").value = ""; byId("weapon-attack-preview").hidden = true;
+    byId("weapon-attack-dialog").showModal(); byId("weapon-attack-dt").focus();
+  }
+
+  function runStandaloneAttack() {
+    const dt = Number(byId("weapon-attack-dt").value);
+    if (byId("weapon-attack-dt").value.trim() === "" || !Number.isInteger(dt) || dt < 0) { setNotice("Informe a DT do alvo.", "error"); return; }
+    const sheet = readSheetFromForm(); const weapon = sheet.inventory.find((item) => item.id === attackingWeaponId);
+    if (!weapon) return;
+    const skillId = weapon.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
+    const rank = rankValue(sheet.skills.find((skill) => skill.id === skillId)?.rank ?? 1);
+    const dice = Array.from({ length: rank }, () => Math.floor(Math.random() * 10) + 1).sort((a, b) => b - a);
+    const criticals = dice.filter((die, index) => die === 10 || (index > 0 && die >= dt)).length;
+    const result = dice[0] + criticals; const success = result >= dt;
+    const strength = rankValue(sheet.skills.find((skill) => skill.id === "forca")?.rank ?? 1);
+    let base = 0; const damageRolls = [];
+    const expression = String(weapon.damage ?? "").replace(/força/gi, String(strength));
+    const terms = expression.match(/[+-]?\s*(?:\d*d\d+|\d+)/gi) ?? [];
+    if (terms.join("").replace(/\s/g, "") !== expression.replace(/\s/g, "")) { setNotice("Dano inválido. Use Força, um número ou dados como 1d6+2.", "error"); return; }
+    for (const term of terms) {
+      const sign = term.trim().startsWith("-") ? -1 : 1; const atom = term.replace(/[+-]/g, "").trim(); const match = atom.match(/^(\d*)d(\d+)$/i);
+      if (match) { const count = Number(match[1] || 1); const sides = Number(match[2]); if (count < 1 || count > 20 || sides < 2 || sides > 1000) { setNotice("Expressão de dano fora dos limites.", "error"); return; } for (let index = 0; index < count; index += 1) { const value = Math.floor(Math.random() * sides) + 1; base += sign * value; damageRolls.push(value); } }
+      else base += sign * Number(atom);
+    }
+    const bonus = Number.parseInt(weapon.critical, 10) || 0; const damage = success ? Math.max(0, base + criticals * bonus) : 0;
+    const message = `${sheet.characterName}: ${weapon.name} · ${dice.join(", ")} · DT ${dt} · Resultado ${result} (${success ? "acerto" : "falha"}) · Críticos ${criticals} · Dano ${damage}${damageRolls.length ? ` [${damageRolls.join(", ")}]` : ""}. No HTML independente, o ataque é apenas simulado e não é enviado ao chat do Owlbear.`;
+    byId("weapon-attack-preview").textContent = message; byId("weapon-attack-preview").hidden = false;
+    setNotice(message, success ? "info" : "error"); byId("weapon-attack-dialog").close();
   }
 
   function renderAbilities(container, abilities, kind) {
@@ -448,7 +666,9 @@
       "inventory-spaces": sheet.inventorySpaces, "character-history": sheet.history,
     };
     for (const [id, value] of Object.entries(values)) if (byId(id)) byId(id).value = value ?? "";
+    defenseActiveDraft = Boolean(sheet.defenseActive);
     renderSkills(sheet.skills); renderEntryLists(sheet); attachStaticEditors();
+    updateDefenseDisplay(sheet);
     byId("selected-name").textContent = sheet.characterName;
     document.title = `${sheet.characterName} | Ficha A&A`;
     document.documentElement.dataset.aaTheme = "owlbear";
@@ -479,15 +699,11 @@
       resourceTwoChronic: nonNegative(byId("resource-two-chronic").value), resourceTwoUnconscious: nonNegative(byId("resource-two-unconscious").value, 10),
       resourceTwoStressedAt: Math.max(1, nonNegative(byId("resource-two-stressed-at").value, 5)), resourceTwoInsaneAt: Math.max(1, nonNegative(byId("resource-two-insane-at").value, 20)),
       evasion: optionalNumber(byId("character-evasion").value), protection: optionalNumber(byId("character-protection").value), conviction: optionalNumber(byId("character-conviction").value),
+      defenseActive: defenseActiveDraft, equipmentDefaultsInitialized: true,
       hideFromPlayers: Boolean(originalPayload?.sheet?.hideFromPlayers), showTokenName,
       nameAppearance: nameAppearance && typeof nameAppearance === "object" ? nameAppearance : null,
       skills: ALL_SKILLS.map((skill) => ({ ...skill, rank: rankById.get(skill.id) ?? 1 })),
-      inventorySpaces: nonNegative(byId("inventory-spaces").value),
-      inventory: readList(byId("inventory-list"), "[data-inventory-card]", (card) => ({
-        id: card.dataset.inventoryId || createId("item"), name: card.querySelector('[data-inventory-field="name"]').value.trim().slice(0, 140),
-        quantity: 1, spaces: nonNegative(card.querySelector('[data-inventory-field="spaces"]').value, 1),
-        description: card.querySelector('[data-inventory-field="description"]').value.slice(0, 4000),
-      })),
+      inventorySpaces: nonNegative(byId("inventory-spaces").value), inventory: readEquipmentList(),
       powers: readList(byId("powers-list"), "[data-ability-card]", (card) => ({
         id: card.dataset.abilityId || createId("ability"), name: card.querySelector('[data-ability-field="name"]').value.trim().slice(0, 140),
         traits: card.querySelector('[data-ability-field="traits"]').value.trim().slice(0, 500), description: card.querySelector('[data-ability-field="description"]').value.slice(0, 6000),
@@ -553,6 +769,23 @@
     if (!target) return;
     const save = target.closest("#save-standalone-sheet");
     if (save) { event.preventDefault(); saveHtml(); return; }
+    const addEquipmentButton = target.closest("[data-add-equipment]");
+    if (addEquipmentButton) { event.preventDefault(); addEquipment(addEquipmentButton.dataset.addEquipment); return; }
+    const equipmentAction = target.closest("[data-equipment-action]");
+    if (equipmentAction) {
+      event.preventDefault();
+      const card = equipmentAction.closest("[data-inventory-card]");
+      const action = equipmentAction.dataset.equipmentAction;
+      if (action === "edit" && card) openEquipmentEditor(card.dataset.inventoryCategory, card._equipmentData);
+      else if (action === "attack" && card) attackWeapon(card._equipmentData);
+      else if (["toggle-equipped", "reaction", "uses-down", "uses-up"].includes(action) && card) modifyEquipment(card, action);
+      return;
+    }
+    if (target.closest("#defense-active-toggle")) { defenseActiveDraft = !defenseActiveDraft; updateDefenseDisplay(); setNotice(defenseActiveDraft ? "Defesa Ativa aplicada." : "Defesa Ativa encerrada.", "info"); return; }
+    if (target.closest("#equipment-dialog-save")) { saveEquipmentEditor(); return; }
+    if (target.closest("#equipment-dialog-cancel, #equipment-dialog-close")) { cancelEquipmentEditor(); return; }
+    if (target.closest("#weapon-attack-roll")) { runStandaloneAttack(); return; }
+    if (target.closest("#weapon-attack-cancel, #weapon-attack-close")) { byId("weapon-attack-dialog").close(); return; }
     if (target.closest("#edit-token-name-appearance")) { event.preventDefault(); openNameAppearanceDialog(); return; }
     if (target.closest("#cancel-name-appearance")) { event.preventDefault(); byId("name-appearance-dialog").close(); return; }
     if (target.closest("#save-name-appearance")) { event.preventDefault(); saveNameAppearance(); return; }
@@ -604,9 +837,11 @@
         const next = readSheetFromForm(); next[field].push(entry); renderEntryLists(next); setNotice("Entrada adicionada. Não esqueça de salvar a ficha.", "info"); return;
       }
     }
-    const remove = target.closest("[data-remove-inventory], [data-remove-ability], [data-remove-profile-entry]");
+    const inventoryRemove = target.closest("[data-remove-inventory]");
+    if (inventoryRemove) { const card = inventoryRemove.closest("[data-inventory-card]"); if (card) modifyEquipment(card, "remove"); return; }
+    const remove = target.closest("[data-remove-ability], [data-remove-profile-entry]");
     if (remove) {
-      remove.closest("[data-inventory-card], [data-ability-card], [data-profile-card]")?.remove(); updateInventorySpaceTotal(); return;
+      remove.closest("[data-ability-card], [data-profile-card]")?.remove(); updateInventorySpaceTotal(); return;
     }
     const editSpaces = target.closest("[data-edit-spaces]");
     if (editSpaces) {
@@ -640,7 +875,7 @@
     if (event.target?.id === "inventory-spaces-editor" && event.key === "Escape") { event.preventDefault(); finishInventorySpacesEdit(false); }
   });
 
-  for (const dialogId of ["name-appearance-dialog", "resource-settings-dialog"]) {
+  for (const dialogId of ["name-appearance-dialog", "resource-settings-dialog", "equipment-dialog", "weapon-attack-dialog"]) {
     const dialog = byId(dialogId);
     dialog?.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   }
@@ -650,6 +885,7 @@
     if (field?.id === "character-name") { byId("selected-name").textContent = field.value.trim() || "Personagem"; document.title = `${field.value.trim() || "Personagem"} | Ficha A&A`; }
     if (field?.id === "token-name-size") byId("token-name-size-value").textContent = `${field.value}%`;
     if (field?.matches('[data-inventory-field="spaces"]')) updateInventorySpaceTotal();
+    if (field?.matches("[data-skill-rank]")) updateDefenseDisplay();
     if (field?.matches("[data-markdown-editor]") && field.dataset.formatReplace !== "true") {
       const preview = field.closest(".formatted-editor")?.querySelector(".markdown-preview");
       if (preview) setTimeout(() => updatePreview(field), 350);

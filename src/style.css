@@ -2200,3 +2200,75 @@ button.initiative-detail-defense, button.initiative-detail-passive-skill { font-
   .token-name-appearance-dialog .confirm-dialog-actions { gap: 4px; }
   .token-name-appearance-dialog .confirm-dialog-actions button { padding-inline: 6px; font-size: 9px; }
 }
+
+/* v0.51 equipment and calculated-defense interface */
+.defenses-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.defense-stat { display: flex; min-width: 0; min-height: 86px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 9px 4px; border: 1px solid currentColor; border-radius: 9px; text-align: center; }
+.defense-stat > span { font-size: 10px; font-weight: 850; letter-spacing: .8px; }
+.defense-stat > output { font-size: clamp(26px, 8vw, 34px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.defense-stat-evasion { color: #91b7ea; border-color: #7198c8; background: color-mix(in srgb, #7198c8 19%, #141414); }
+.defense-stat-protection { color: #98d4ab; border-color: #70a783; background: color-mix(in srgb, #70a783 19%, #141414); }
+.defense-stat-conviction { color: #e5c66e; border-color: #ac913e; background: color-mix(in srgb, #ac913e 19%, #141414); }
+.defense-active-button { display: block; width: 100%; min-height: 36px; margin-top: 9px; padding: 8px 12px; border: 1px solid #a72129; border-radius: 8px; color: #fff; background: #7f2027; font-size: 11px; font-weight: 850; letter-spacing: .2px; cursor: pointer; }
+.defense-active-button:hover:not(:disabled) { background: #9a2931; }
+.defense-active-button.is-active { border-color: #d76d73; background: #a52d36; box-shadow: 0 0 0 2px #a721292e; }
+.defense-active-status { margin: 7px 0 0; color: #f0b7ba; text-align: center; font-size: 10px; font-weight: 700; }
+.defense-hidden-values { display: none !important; }
+.equipment-inventory-panel { min-width: 0; }
+.equipment-sections { display: grid; gap: 13px; }
+.equipment-section { min-width: 0; }
+.equipment-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid #303030; }
+.equipment-section-heading h3 { flex: 1; font-size: 11px; font-weight: 850; letter-spacing: .4px; text-transform: uppercase; cursor: pointer; }
+.equipment-section-heading h3::before { content: "▾"; display: inline-block; width: 16px; color: #9b9b9b; transition: transform .15s ease; }
+.equipment-section-heading h3.is-collapsed::before { transform: rotate(-90deg); }
+.equipment-list { display: grid; gap: 5px; min-width: 0; }
+.equipment-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 7px 8px; border: 1px solid #343434; border-radius: 8px; background: #171717; }
+.equipment-card-main { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; border: 0; text-align: left; background: transparent; cursor: pointer; }
+.equipment-card-main:hover .equipment-card-title { color: #f0a1a5; }
+.equipment-card-title { max-width: 100%; color: #f4f4f4; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.equipment-card-meta { max-width: 100%; color: #a8a8a8; font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.equipment-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+.equipment-state-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 7px; border: 1px solid #484848; border-radius: 6px; color: #aaa; font-size: 9px; font-weight: 800; white-space: nowrap; }
+:root[data-aa-theme="owlbear"] .equipment-state-badge { border-color: color-mix(in srgb, var(--aa-owl-text, #eef0ff) 20%, transparent); color: var(--aa-owl-muted, #b5bac6); }
+:root[data-aa-theme="custom"] .equipment-state-badge { border-color: var(--aa-custom-border, #383838); color: var(--aa-custom-muted, #a7a7a7); }
+.equipment-action-button, .equipment-uses-step { min-height: 27px; padding: 5px 7px; border: 1px solid #444; border-radius: 6px; color: #e2e2e2; background: #242424; font-size: 10px; font-weight: 750; white-space: nowrap; cursor: pointer; }
+.equipment-action-button:hover:not(:disabled), .equipment-uses-step:hover:not(:disabled) { border-color: #8a5559; background: #302326; }
+.equipment-attack-button { border-color: #8a3038; color: #ffdfe1; background: #482025; }
+.equipment-action-button.is-equipped { border-color: #547c60; color: #c7efd1; background: #203128; }
+.equipment-uses-step { width: 25px; padding: 3px; font-size: 14px; }
+.equipment-uses-count { min-width: 18px; color: #f1f1f1; text-align: center; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.equipment-remove-button { width: 24px; height: 25px; min-height: 25px; }
+.equipment-empty-state { padding: 7px 1px; font-size: 10px; }
+.equipment-dialog { width: min(390px, calc(100% - 20px)); max-width: calc(100% - 20px); max-height: min(88vh, 760px); overflow-y: auto; padding: 14px; }
+.equipment-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.equipment-dialog-heading h2 { margin: 0; font-size: 14px; }
+.equipment-field { display: flex; min-width: 0; flex-direction: column; gap: 5px; margin-bottom: 10px; color: #c6c6c6; font-size: 10px; font-weight: 750; }
+.equipment-field input:not([type="checkbox"]), .equipment-field select, .equipment-field textarea { width: 100%; min-width: 0; min-height: 34px; padding: 8px 9px; border: 1px solid #3e3e3e; border-radius: 7px; outline: 0; color: #f0f0f0; background: #111; font: inherit; font-size: 12px; font-weight: 500; }
+.equipment-field textarea { resize: vertical; min-height: 82px; line-height: 1.45; }
+.equipment-field input:focus, .equipment-field select:focus, .equipment-field textarea:focus { border-color: #a95057; box-shadow: 0 0 0 2px #a721292a; }
+.equipment-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; }
+.equipment-subgrid { grid-column: 1 / -1; margin: 0; }
+.equipment-check-field { flex-direction: row; align-items: center; gap: 8px; min-height: 35px; padding: 0 4px; }
+.equipment-check-field input { accent-color: #a72129; width: 16px; height: 16px; }
+.equipment-dialog .confirm-dialog-actions { margin-top: 5px; }
+.equipment-dialog [hidden] { display: none !important; }
+.weapon-attack-dialog { width: min(340px, calc(100% - 20px)); }
+.weapon-attack-preview { padding: 8px; border-radius: 6px; background: #111; color: #ccc; font-size: 10px; }
+#inventory-spaces-used { cursor: pointer; }
+:root[data-aa-theme="owlbear"] .equipment-card { border-color: color-mix(in srgb, var(--aa-owl-text, #eef0ff) 15%, transparent); background: var(--aa-owl-paper, #252b36); }
+:root[data-aa-theme="owlbear"] .equipment-card-title { color: var(--aa-owl-text, #eef0ff); }
+:root[data-aa-theme="owlbear"] .equipment-card-meta { color: var(--aa-owl-muted, #b5bac6); }
+:root[data-aa-theme="owlbear"] .equipment-section-heading { border-color: color-mix(in srgb, var(--aa-owl-text, #eef0ff) 15%, transparent); }
+:root[data-aa-theme="owlbear"] .defense-stat-evasion { background: color-mix(in srgb, #7198c8 20%, var(--aa-owl-paper, #252b36)); }
+:root[data-aa-theme="owlbear"] .defense-stat-protection { background: color-mix(in srgb, #70a783 20%, var(--aa-owl-paper, #252b36)); }
+:root[data-aa-theme="owlbear"] .defense-stat-conviction { background: color-mix(in srgb, #ac913e 20%, var(--aa-owl-paper, #252b36)); }
+:root[data-aa-theme="custom"] .equipment-card { border-color: var(--aa-custom-border, #383838); background: var(--aa-custom-surface, #191919); }
+:root[data-aa-theme="custom"] .equipment-card-title { color: var(--aa-custom-text, #f2f2f2); }
+:root[data-aa-theme="custom"] .equipment-card-meta { color: var(--aa-custom-muted, #a7a7a7); }
+:root[data-aa-theme="custom"] .equipment-section-heading { border-color: var(--aa-custom-border, #383838); }
+@media (max-width: 340px) {
+  .equipment-card { grid-template-columns: minmax(0, 1fr); }
+  .equipment-card-actions { justify-content: flex-start; }
+  .defense-stat { min-height: 76px; }
+  .equipment-dialog { padding: 11px; }
+}

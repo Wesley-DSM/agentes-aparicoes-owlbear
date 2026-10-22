@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.50.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.51.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -140,6 +140,16 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 
 
 
+
+## Ajustes da versão 0.51.0
+
+- Inventário organizado em Armas, Armaduras e escudos, e Suprimentos, com sessões recolhíveis e edição por popup.
+- Armas configuráveis com tipo, perícia (Armas Simples ou Armas de Fogo), dano, críticos e bônus defensivos por reação; ataques rolam a perícia, calculam o dano e registram o resultado no CHAT.
+- Armaduras e escudos configuráveis com bônus de Evasão/Proteção, valores de Defesa Ativa e estado de equipamento. A Defesa Ativa calcula os bônus sem alterar os valores-base.
+- Evasão, Proteção e Convicção exibidas lado a lado, com valores automáticos e cores correspondentes; Convicção não recebe bônus de equipamentos.
+- Punho e Sem Armadura adicionados automaticamente às fichas antigas e novas, preservando o inventário legado como suprimentos.
+- Contadores opcionais de usos para suprimentos e atualização da ficha HTML independente.
+- Testes para dados padrão, migração de inventário, cálculo das defesas, ataques e dano.
 
 ## Ajustes da versão 0.50.0
 
