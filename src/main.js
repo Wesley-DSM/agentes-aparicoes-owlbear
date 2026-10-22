@@ -12,6 +12,7 @@ import {
 } from "./initiative.js";
 import { MAX_DIE_RESULTS, MAX_ROLL_HISTORY, normalizeRollHistory, ROLL_HISTORY_KEY, appendRollHistory, clearRollHistory, rerollLogDie, toggleLogReaction, updateRollHistoryEntry } from "./rollHistory.js";
 import { renderInlineRolls, resolveInlineRolls, updateInlineRollTestResult } from "./inlineRolls.js";
+import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
 
 const byId = (id) => document.getElementById(id);
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
@@ -104,6 +105,7 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   nameColor: "#000000",
   nameFont: "serif",
   barPlacement: "bottom",
+  namePlacement: "bottom",
 });
 let displaySettings = { ...DEFAULT_DISPLAY_SETTINGS };
 let settingsWriteQueue = Promise.resolve();
@@ -350,6 +352,7 @@ function normalizeDisplaySettings(raw) {
     nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
     nameFont: normalizeFont(source.nameFont),
     barPlacement: source.barPlacement === "top" ? "top" : "bottom",
+    namePlacement: source.namePlacement === "top" ? "top" : source.namePlacement === "bottom" ? "bottom" : (source.barPlacement === "top" ? "top" : "bottom"),
   };
 }
 
@@ -514,6 +517,7 @@ function renderDisplaySettingsControls() {
     "name-color": displaySettings.nameColor,
     "name-font": displaySettings.nameFont,
     "bar-placement": displaySettings.barPlacement,
+    "name-placement": displaySettings.namePlacement,
   };
   for (const [id, value] of Object.entries(controls)) {
     const control = byId(id);
@@ -531,7 +535,7 @@ function renderDisplaySettingsControls() {
     if (control) control.disabled = !canEdit;
   }
   const note = byId("settings-permission-note");
-  if (note) note.textContent = "As configurações das barras são compartilhadas por todos na sala.";
+  if (note) note.textContent = "A aparência dos tokens é compartilhada por todos na sala. Clique diretamente no elemento para abrir suas opções.";
   renderInitiativePreview();
   renderTokenAppearancePreview();
 }
@@ -540,30 +544,61 @@ function renderTokenAppearancePreview() {
   const host = byId("token-appearance-preview");
   if (!host) return;
   const name = host.querySelector(".appearance-preview-name");
+  const bars = host.querySelector(".appearance-preview-bars");
+  const defenses = host.querySelector(".appearance-preview-defenses");
+  const widthGuide = host.querySelector(".appearance-preview-token-width");
+  const stage = host.querySelector(".appearance-preview-stage");
+  const sides = Object.fromEntries([...host.querySelectorAll("[data-preview-side]")].map((slot) => [slot.dataset.previewSide, slot]));
+  if (!name || !bars || !defenses || !stage || !sides.above || !sides.below) return;
+
+  const namePlacement = byId("name-placement")?.value || displaySettings.namePlacement;
+  const statusPlacement = byId("bar-placement")?.value || displaySettings.barPlacement;
+  stage.dataset.statusPlacement = statusPlacement;
+  stage.dataset.namePlacement = namePlacement;
+
+  const groups = { name, bars, defenses };
+  sides.above.replaceChildren();
+  sides.below.replaceChildren();
+  const layout = getTokenAppearanceLayout(statusPlacement, namePlacement);
+  for (const group of layout.above) sides.above.append(groups[group]);
+  for (const group of layout.below) sides.below.append(groups[group]);
+
   if (name) {
     name.style.color = byId("name-color")?.value || displaySettings.nameColor;
     name.style.fontFamily = byId("name-font")?.value || displaySettings.nameFont;
     name.style.textAlign = byId("name-alignment")?.value || displaySettings.nameAlignment;
-    const percent = Number(byId("name-size")?.value ?? displaySettings.nameSizePercent) || 0;
-    name.style.fontSize = `${10 + percent * 0.12}px`;
+    const percent = Math.max(0, Math.min(100, Number(byId("name-size")?.value ?? displaySettings.nameSizePercent) || 0));
+    const guideWidth = Math.max(170, Math.min(260, widthGuide?.clientWidth || 260));
+    const charCount = Math.max(1, String(name.textContent || "").length);
+    const widthFit = Math.max(8, guideWidth / (charCount * 0.55));
+    const minimum = Math.max(8, Math.min(guideWidth * 0.18, widthFit * 0.48));
+    name.style.fontSize = `${minimum + (widthFit - minimum) * (percent / 100)}px`;
     name.style.fontWeight = "800";
   }
+
   for (const key of ["wounds", "stress"]) {
-    const button = host.querySelector(`.appearance-preview-${key}`);
-    if (!button) continue;
-    const color = byId(key === "wounds" ? "wounds-color" : "stress-color")?.value || (key === "wounds" ? displaySettings.woundsColor : displaySettings.stressColor);
-    const background = byId(key === "wounds" ? "wounds-background-color" : "stress-background-color")?.value || (key === "wounds" ? displaySettings.woundsBackgroundColor : displaySettings.stressBackgroundColor);
-    const fill = button.querySelector(".appearance-preview-fill");
-    button.style.backgroundColor = background;
-    button.style.borderColor = background;
+    const bar = host.querySelector(`.appearance-preview-${key}`);
+    if (!bar) continue;
+    const colorId = key === "wounds" ? "wounds-color" : "stress-color";
+    const backgroundId = key === "wounds" ? "wounds-background-color" : "stress-background-color";
+    const color = byId(colorId)?.value || displaySettings[key === "wounds" ? "woundsColor" : "stressColor"];
+    const background = byId(backgroundId)?.value || displaySettings[key === "wounds" ? "woundsBackgroundColor" : "stressBackgroundColor"];
+    const fill = bar.querySelector(".appearance-preview-fill");
+    bar.style.backgroundColor = background;
+    bar.style.borderColor = background;
+    bar.style.height = byId("bar-size")?.value === "large" ? "34px" : "28px";
+    const number = bar.querySelector("strong");
+    if (number) {
+      number.style.color = byId("bar-text-color")?.value || displaySettings.barTextColor;
+      number.style.fontFamily = byId("bar-font")?.value || displaySettings.barFont;
+      number.style.textAlign = byId("bar-alignment")?.value || displaySettings.barAlignment;
+    }
     if (fill) {
       fill.style.backgroundColor = color;
-      fill.style.width = key === "wounds" ? "30%" : "20%";
+      fill.style.width = "50%";
     }
-    button.style.height = byId("bar-size")?.value === "large" ? "30px" : "24px";
-    button.style.color = byId("bar-text-color")?.value || displaySettings.barTextColor;
-    button.style.fontFamily = byId("bar-font")?.value || displaySettings.barFont;
   }
+
   const defenseColors = {
     evasion: byId("evasion-background-color")?.value || displaySettings.evasionBackgroundColor,
     protection: byId("protection-background-color")?.value || displaySettings.protectionBackgroundColor,
@@ -576,41 +611,61 @@ function renderTokenAppearancePreview() {
     chip.style.borderColor = color;
     chip.style.color = byId("defense-color")?.value || displaySettings.defenseColor;
     chip.style.fontFamily = byId("defense-font")?.value || displaySettings.defenseFont;
-    chip.style.height = byId("defense-size")?.value === "large" ? "28px" : "23px";
+    chip.style.height = byId("defense-size")?.value === "large" ? "30px" : "24px";
   }
-  const token = host.querySelector(".appearance-preview-token");
-  if (token) token.dataset.placement = byId("bar-placement")?.value || displaySettings.barPlacement;
-}
-
-renderTokenAppearancePreview();
-
-function setTokenSettingsTab(tabId) {
-  for (const panel of document.querySelectorAll("[data-token-settings-panel]")) {
-    panel.hidden = panel.dataset.tokenSettingsPanel !== tabId;
-  }
-  for (const tab of document.querySelectorAll("[data-token-settings-tab]")) {
-    const active = tab.dataset.tokenSettingsTab === tabId;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", String(active));
+  if (defenses) {
+    const alignment = byId("defense-alignment")?.value || displaySettings.defenseAlignment;
+    defenses.style.width = byId("defense-size")?.value === "large" ? "100%" : "76%";
+    defenses.style.marginLeft = alignment === "right" ? "auto" : alignment === "center" ? "auto" : "0";
+    defenses.style.marginRight = alignment === "left" ? "auto" : alignment === "center" ? "auto" : "0";
   }
 }
 
-document.querySelectorAll("[data-token-settings-tab]").forEach((tab) => {
-  tab.addEventListener("click", () => setTokenSettingsTab(tab.dataset.tokenSettingsTab));
+const APPEARANCE_DIALOGS = Object.freeze({
+  bars: "appearance-bars-dialog",
+  defenses: "appearance-defenses-dialog",
+  names: "appearance-names-dialog",
 });
+const APPEARANCE_CONTEXTS = Object.freeze({
+  "wounds-color": "Ferimentos: cor do preenchimento.",
+  "stress-color": "Estresses: cor do preenchimento.",
+  "wounds-background-color": "Ferimentos: cor do fundo.",
+  "stress-background-color": "Estresses: cor do fundo.",
+  "bar-text-color": "Número das barras: cor e fonte compartilhadas por Ferimentos e Estresses.",
+  "bar-font": "Número das barras: fonte compartilhada por Ferimentos e Estresses.",
+  "evasion-background-color": "Evasão: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
+  "protection-background-color": "Proteção: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
+  "conviction-background-color": "Convicção: cor individual do fundo. Fonte e cor do texto são compartilhadas.",
+  "name-color": "Nome do personagem: tamanho em relação à largura do token, fonte e cor.",
+});
+
+function openAppearancePopup(target) {
+  if (currentRole !== "GM") return;
+  const kind = target.dataset.appearancePreviewTarget;
+  const dialog = byId(APPEARANCE_DIALOGS[kind]);
+  if (!dialog) return;
+  const controlId = target.dataset.appearanceControl;
+  const context = byId(`${APPEARANCE_DIALOGS[kind].replace("-dialog", "")}-context`);
+  if (context) context.textContent = APPEARANCE_CONTEXTS[controlId] || context.textContent;
+  if (!dialog.open) dialog.showModal();
+  requestAnimationFrame(() => {
+    const control = byId(controlId);
+    if (control && !control.disabled) control.focus({ preventScroll: true });
+  });
+}
+
 byId("token-appearance-preview")?.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target.closest("[data-appearance-preview-target]") : null;
-  if (!target || currentRole !== "GM") return;
-  const tabId = target.dataset.appearancePreviewTarget;
-  setTokenSettingsTab(tabId);
-  const focusMap = {
-    bars: target.classList.contains("appearance-preview-stress") ? "stress-color" : "wounds-color",
-    defenses: target.dataset.previewDefense === "protection" ? "protection-background-color" : target.dataset.previewDefense === "conviction" ? "conviction-background-color" : "evasion-background-color",
-    names: "name-size",
-  };
-  byId(focusMap[tabId])?.focus();
+  if (target) openAppearancePopup(target);
 });
-for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement"]) {
+
+document.querySelectorAll("[data-close-appearance-dialog]").forEach((button) => {
+  button.addEventListener("click", () => byId(button.dataset.closeAppearanceDialog)?.close());
+});
+for (const id of ["appearance-bars-dialog", "appearance-defenses-dialog", "appearance-names-dialog"]) {
+  byId(id)?.addEventListener("click", (event) => { if (event.target === byId(id)) byId(id).close(); });
+}
+for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement", "name-placement"]) {
   byId(id)?.addEventListener("input", renderTokenAppearancePreview);
 }
 
@@ -662,12 +717,13 @@ async function saveDisplaySettings() {
     nameColor: byId("name-color").value,
     nameFont: byId("name-font").value,
     barPlacement: byId("bar-placement").value,
+    namePlacement: byId("name-placement").value,
   });
   settingsWriteQueue = settingsWriteQueue.then(async () => {
     await OBR.room.setMetadata({ [DISPLAY_SETTINGS_KEY]: next });
     displaySettings = next;
     renderDisplaySettingsControls();
-    setSettingsNotice("Configurações das barras salvas para a sala.", "success");
+    setSettingsNotice("Aparência dos tokens salva para a sala.", "success");
   }).catch(async (error) => {
     console.error("A&A: não foi possível salvar as configurações das barras.", error);
     await refreshDisplaySettings();
@@ -676,7 +732,7 @@ async function saveDisplaySettings() {
   return settingsWriteQueue;
 }
 
-for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement"]) {
+for (const id of ["wounds-color", "stress-color", "wounds-background-color", "stress-background-color", "bar-size", "bar-alignment", "bar-text-color", "bar-font", "defense-size", "defense-alignment", "defense-color", "defense-font", "evasion-background-color", "protection-background-color", "conviction-background-color", "name-size", "name-alignment", "name-color", "name-font", "bar-placement", "name-placement"]) {
   byId(id)?.addEventListener("change", () => void saveDisplaySettings());
 }
 byId("name-size")?.addEventListener("input", () => { const output = byId("name-size-percent-value"); if (output) output.textContent = `${byId("name-size").value}%`; });
@@ -2151,7 +2207,7 @@ OBR.onReady(async () => {
     try { showDetailedInitiative = localStorage.getItem(DETAILED_INITIATIVE_STORAGE_KEY) === "true"; } catch { showDetailedInitiative = false; }
     initiativeDetailsToggle.classList.toggle("active", showDetailedInitiative);
     initiativeDetailsToggle.setAttribute("aria-pressed", String(showDetailedInitiative));
-    setTokenSettingsTab("bars");
+    renderTokenAppearancePreview();
     const [, settingsLoaded] = await Promise.all([
       refreshInitiativeView(),
       refreshDisplaySettings(),

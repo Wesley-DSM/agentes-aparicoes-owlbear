@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Protótipo experimental 0.47.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Protótipo experimental 0.48.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -46,6 +46,10 @@ Ao clicar no nome da perícia, a extensão rola de 1 a 5 dados de dez faces conf
 Cada recurso soma os valores **Normais** e **Crônicos**. Os limites padrão são 5, 10 e 20: Machucado, Inconsciente e Morto para Ferimentos; Estressado, Enlouquecendo e Insano para Estresses. Clique no rótulo da barra para editar os limites ou ajustar Estresses Crônicos. O limite final determina a escala do preenchimento da barra.
 
 Dados antigos são migrados automaticamente: o valor atual passa para Normais, os limiares novos recebem valores padrão e os limites personalizados podem ser ajustados no popup do recurso.
+
+## Aparência dos Tokens
+
+A aba de aparência usa uma pré-visualização clicável: selecione o nome, uma defesa ou uma das três áreas de cada barra para abrir o popup correspondente. As configurações de cor preenchida, cor de fundo e número são separadas; a fonte e a cor do texto das defesas são compartilhadas. Posição dos status e posição do nome podem ser combinadas em quatro layouts, com controles de alinhamento à parte. Uma borda arredondada na prévia representa a largura de referência do token, sem desenhar um quadrado alto.
 
 ## Barras
 

@@ -99,182 +99,132 @@
             </button>
           </div>
           <div id="token-appearance-content" class="collapsible-content">
-          <section id="token-appearance-preview" class="token-appearance-preview" aria-label="Pré-visualização interativa da aparência dos tokens">
-            <p>Clique em uma parte da pré-visualização para personalizá-la.</p>
-            <div class="appearance-preview-token">
-              <button type="button" class="appearance-preview-name" data-appearance-preview-target="names" title="Personalizar nome">Exemplo de personagem</button>
-              <button type="button" class="appearance-preview-bar appearance-preview-wounds" data-appearance-preview-target="bars" title="Personalizar barra de Ferimentos"><span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Ferimentos</span><strong>3/10</strong></button>
-              <button type="button" class="appearance-preview-bar appearance-preview-stress" data-appearance-preview-target="bars" title="Personalizar barra de Estresses"><span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Estresses</span><strong>2/10</strong></button>
-              <div class="appearance-preview-defenses">
-                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="evasion" title="Personalizar Evasão">EVA 12</button>
-                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="protection" title="Personalizar Proteção">PRO 3</button>
-                <button type="button" data-appearance-preview-target="defenses" data-preview-defense="conviction" title="Personalizar Convicção">CON 8</button>
+            <div class="appearance-layout-controls">
+              <h3>Disposição</h3>
+              <div class="appearance-layout-placement-grid">
+                <label class="settings-control" for="bar-placement">
+                  <span>Posição dos status</span>
+                  <select id="bar-placement">
+                    <option value="top">Em cima</option>
+                    <option value="bottom">Em baixo</option>
+                  </select>
+                </label>
+                <label class="settings-control" for="name-placement">
+                  <span>Posição do nome</span>
+                  <select id="name-placement">
+                    <option value="top">Em cima</option>
+                    <option value="bottom">Em baixo</option>
+                  </select>
+                </label>
+              </div>
+              <h4>Alinhamento dos elementos</h4>
+              <div class="appearance-layout-alignment-grid">
+                <label class="settings-control" for="name-alignment">
+                  <span>Nome</span>
+                  <select id="name-alignment">
+                    <option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option>
+                  </select>
+                </label>
+                <label class="settings-control" for="defense-alignment">
+                  <span>Defesas</span>
+                  <select id="defense-alignment">
+                    <option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option>
+                  </select>
+                </label>
+                <label class="settings-control" for="bar-alignment">
+                  <span>Barras</span>
+                  <select id="bar-alignment">
+                    <option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option>
+                  </select>
+                </label>
               </div>
             </div>
-          </section>
-          <nav class="settings-subtabs" aria-label="Aparência dos tokens">
-            <button class="settings-subtab active" type="button" data-token-settings-tab="bars" aria-selected="true">Barras</button>
-            <button class="settings-subtab" type="button" data-token-settings-tab="defenses" aria-selected="false">Defesas</button>
-            <button class="settings-subtab" type="button" data-token-settings-tab="names" aria-selected="false">Nomes</button>
-          </nav>
 
-          <div class="token-settings-panel" data-token-settings-panel="bars">
-            <div class="resource-color-groups">
-              <section class="resource-color-group" aria-labelledby="wounds-colors-heading">
-                <h3 id="wounds-colors-heading">Ferimentos</h3>
-                <div class="settings-color-grid resource-color-grid">
-                  <label class="settings-control settings-color-control" for="wounds-color">
-                    <span>Preenchido</span>
-                    <input id="wounds-color" type="color" value="#c84b56" aria-label="Cor preenchida da barra de Ferimentos" />
-                  </label>
-                  <label class="settings-control settings-color-control" for="wounds-background-color">
-                    <span>Fundo</span>
-                    <input id="wounds-background-color" type="color" value="#d9878d" aria-label="Cor de fundo da barra de Ferimentos" />
-                  </label>
+            <section id="token-appearance-preview" class="token-appearance-preview" aria-label="Pré-visualização interativa da aparência dos tokens">
+              <p>Clique no nome, em uma defesa ou em uma das três partes de uma barra para personalizar. A borda arredondada representa a largura do token.</p>
+              <div class="appearance-preview-stage" data-status-placement="bottom" data-name-placement="bottom">
+                <div class="appearance-preview-slot" data-preview-side="above" aria-label="Elementos acima do token">
+                  <button type="button" class="appearance-preview-name" data-appearance-preview-target="names" data-appearance-control="name-color" title="Personalizar nome">Exemplo de personagem</button>
+                  <div class="appearance-preview-bars">
+                    <div class="appearance-preview-bar appearance-preview-wounds" aria-label="Barra de Ferimentos">
+                      <span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Ferimentos</span><strong>3/10</strong>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-fill" data-appearance-preview-target="bars" data-appearance-control="wounds-color" aria-label="Mudar a cor preenchida de Ferimentos" title="Cor preenchida"></button>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-number" data-appearance-preview-target="bars" data-appearance-control="bar-text-color" aria-label="Mudar a cor e a fonte do número das barras" title="Número e fonte"></button>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-background" data-appearance-preview-target="bars" data-appearance-control="wounds-background-color" aria-label="Mudar a cor de fundo de Ferimentos" title="Cor de fundo"></button>
+                    </div>
+                    <div class="appearance-preview-bar appearance-preview-stress" aria-label="Barra de Estresses">
+                      <span class="appearance-preview-fill"></span><span class="appearance-preview-bar-label">Estresses</span><strong>2/10</strong>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-fill" data-appearance-preview-target="bars" data-appearance-control="stress-color" aria-label="Mudar a cor preenchida de Estresses" title="Cor preenchida"></button>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-number" data-appearance-preview-target="bars" data-appearance-control="bar-text-color" aria-label="Mudar a cor e a fonte do número das barras" title="Número e fonte"></button>
+                      <button type="button" class="appearance-preview-zone appearance-preview-zone-background" data-appearance-preview-target="bars" data-appearance-control="stress-background-color" aria-label="Mudar a cor de fundo de Estresses" title="Cor de fundo"></button>
+                    </div>
+                  </div>
+                  <div class="appearance-preview-defenses">
+                    <button type="button" data-appearance-preview-target="defenses" data-appearance-control="evasion-background-color" data-preview-defense="evasion" title="Personalizar Evasão">EVA 12</button>
+                    <button type="button" data-appearance-preview-target="defenses" data-appearance-control="protection-background-color" data-preview-defense="protection" title="Personalizar Proteção">PRO 3</button>
+                    <button type="button" data-appearance-preview-target="defenses" data-appearance-control="conviction-background-color" data-preview-defense="conviction" title="Personalizar Convicção">CON 8</button>
+                  </div>
                 </div>
-              </section>
-              <section class="resource-color-group" aria-labelledby="stress-colors-heading">
-                <h3 id="stress-colors-heading">Estresses</h3>
-                <div class="settings-color-grid resource-color-grid">
-                  <label class="settings-control settings-color-control" for="stress-color">
-                    <span>Preenchido</span>
-                    <input id="stress-color" type="color" value="#397fc4" aria-label="Cor preenchida da barra de Estresses" />
-                  </label>
-                  <label class="settings-control settings-color-control" for="stress-background-color">
-                    <span>Fundo</span>
-                    <input id="stress-background-color" type="color" value="#87b3e2" aria-label="Cor de fundo da barra de Estresses" />
-                  </label>
+                <div class="appearance-preview-token-width" aria-label="Referência da largura do token">
+                  <span class="appearance-preview-token-glyph" aria-hidden="true">T</span>
+                  <span class="appearance-preview-width-caption">Largura de referência do token</span>
                 </div>
-              </section>
-            </div>
-            <label class="settings-control" for="bar-size">
-              <span>Tamanho</span>
-              <select id="bar-size">
-                <option value="small">Barras Pequenas</option>
-                <option value="large">Barras Grandes</option>
-              </select>
-            </label>
-            <label class="settings-control" for="bar-placement">
-              <span>Posição</span>
-              <select id="bar-placement">
-                <option value="bottom">Barra Inferior</option>
-                <option value="top">Barra Superior</option>
-              </select>
-            </label>
-            <label class="settings-control" for="bar-alignment">
-              <span>Alinhamento do número</span>
-              <select id="bar-alignment">
-                <option value="left">Esquerda</option>
-                <option value="center">Centralizado</option>
-                <option value="right">Direita</option>
-              </select>
-            </label>
-            <div class="settings-color-grid">
-              <label class="settings-control settings-color-control" for="bar-text-color">
-                <span>Cor do número</span>
-                <input id="bar-text-color" type="color" value="#ffffff" aria-label="Cor do número das barras" />
-              </label>
-              <label class="settings-control" for="bar-font">
-                <span>Fonte do número</span>
-                <select id="bar-font" class="font-choice">
-                  <option value="sans-serif">Padrão sem serifa</option>
-                  <option value="Arial">Arial</option>
-                  <option value="serif">Serifada</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="monospace">Monoespaçada</option>
-                  <option value="Courier New">Courier New</option>
-                  <option value="cursive">Manuscrita</option>
-                </select>
-              </label>
-            </div>
-          </div>
+                <div class="appearance-preview-slot" data-preview-side="below" aria-label="Elementos abaixo do token"></div>
+              </div>
+            </section>
 
-          <div class="token-settings-panel" data-token-settings-panel="defenses" hidden>
-            <label class="settings-control" for="defense-size">
-              <span>Tamanho</span>
-              <select id="defense-size">
-                <option value="small">Defesas Pequenas</option>
-                <option value="large">Defesas Grandes</option>
-              </select>
-            </label>
-            <label class="settings-control" for="defense-alignment">
-              <span>Alinhamento</span>
-              <select id="defense-alignment">
-                <option value="left">Esquerda</option>
-                <option value="center">Centralizado</option>
-                <option value="right">Direita</option>
-              </select>
-            </label>
-            <div class="settings-color-grid">
-              <label class="settings-control settings-color-control" for="defense-color">
-                <span>Cor do texto</span>
-                <input id="defense-color" type="color" value="#ffffff" aria-label="Cor do texto das defesas" />
-              </label>
-              <label class="settings-control" for="defense-font">
-                <span>Fonte</span>
-                <select id="defense-font" class="font-choice">
-                  <option value="sans-serif">Padrão sem serifa</option>
-                  <option value="Arial">Arial</option>
-                  <option value="serif">Serifada</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="monospace">Monoespaçada</option>
-                  <option value="Courier New">Courier New</option>
-                  <option value="cursive">Manuscrita</option>
-                </select>
-              </label>
-            </div>
-            <div class="settings-color-grid defense-background-colors">
-              <label class="settings-control settings-color-control" for="evasion-background-color">
-                <span>Fundo de EVA</span>
-                <input id="evasion-background-color" type="color" value="#6d3438" aria-label="Cor de fundo de Evasão" />
-              </label>
-              <label class="settings-control settings-color-control" for="protection-background-color">
-                <span>Fundo de PRO</span>
-                <input id="protection-background-color" type="color" value="#315b43" aria-label="Cor de fundo de Proteção" />
-              </label>
-              <label class="settings-control settings-color-control" for="conviction-background-color">
-                <span>Fundo de CON</span>
-                <input id="conviction-background-color" type="color" value="#453d78" aria-label="Cor de fundo de Convicção" />
-              </label>
-            </div>
-          </div>
+            <p id="settings-permission-note" class="settings-note">As configurações de aparência são compartilhadas por todos na sala.</p>
 
-          <div class="token-settings-panel" data-token-settings-panel="names" hidden>
-            <label class="settings-control name-size-control" for="name-size">
-              <span>Tamanho <output id="name-size-percent-value" for="name-size">0%</output></span>
-              <input id="name-size" type="range" min="0" max="100" step="1" value="0" />
-            </label>
-            <label class="settings-control" for="name-alignment">
-              <span>Alinhamento</span>
-              <select id="name-alignment">
-                <option value="left">Esquerda</option>
-                <option value="center">Centralizado</option>
-                <option value="right">Direita</option>
-              </select>
-            </label>
-            <div class="settings-color-grid">
-              <label class="settings-control settings-color-control" for="name-color">
-                <span>Cor</span>
-                <input id="name-color" type="color" value="#ffffff" aria-label="Cor do nome" />
-              </label>
-              <label class="settings-control" for="name-font">
-                <span>Fonte</span>
-                <select id="name-font" class="font-choice">
-                  <option value="sans-serif">Padrão sem serifa</option>
-                  <option value="Arial">Arial</option>
-                  <option value="serif">Serifada</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="monospace">Monoespaçada</option>
-                  <option value="Courier New">Courier New</option>
-                  <option value="cursive">Manuscrita</option>
-                </select>
-              </label>
-            </div>
-          </div>
-          <p id="settings-permission-note" class="settings-note">As configurações das barras são compartilhadas por todos na sala.</p>
+            <dialog id="appearance-bars-dialog" class="confirm-dialog settings-edit-dialog appearance-editor-dialog" aria-labelledby="appearance-bars-title">
+              <div class="appearance-editor-heading"><div><h2 id="appearance-bars-title">Barras de Ferimentos e Estresses</h2><p id="appearance-bars-context" class="appearance-editor-context">Personalize as cores das barras e seus números.</p></div><button type="button" class="appearance-dialog-close-icon" data-close-appearance-dialog="appearance-bars-dialog" aria-label="Fechar">×</button></div>
+              <div class="token-settings-panel" data-token-settings-panel="bars">
+                <div class="resource-color-groups">
+                  <section class="resource-color-group" aria-labelledby="wounds-colors-heading"><h3 id="wounds-colors-heading">Ferimentos</h3><div class="settings-color-grid resource-color-grid">
+                    <label class="settings-control settings-color-control" for="wounds-color"><span>Cor preenchida</span><input id="wounds-color" type="color" value="#c84b56" aria-label="Cor preenchida da barra de Ferimentos" /></label>
+                    <label class="settings-control settings-color-control" for="wounds-background-color"><span>Cor de fundo</span><input id="wounds-background-color" type="color" value="#d9878d" aria-label="Cor de fundo da barra de Ferimentos" /></label>
+                  </div></section>
+                  <section class="resource-color-group" aria-labelledby="stress-colors-heading"><h3 id="stress-colors-heading">Estresses</h3><div class="settings-color-grid resource-color-grid">
+                    <label class="settings-control settings-color-control" for="stress-color"><span>Cor preenchida</span><input id="stress-color" type="color" value="#397fc4" aria-label="Cor preenchida da barra de Estresses" /></label>
+                    <label class="settings-control settings-color-control" for="stress-background-color"><span>Cor de fundo</span><input id="stress-background-color" type="color" value="#87b3e2" aria-label="Cor de fundo da barra de Estresses" /></label>
+                  </div></section>
+                </div>
+                <label class="settings-control" for="bar-size"><span>Tamanho das barras</span><select id="bar-size"><option value="small">Pequenas</option><option value="large">Grandes</option></select></label>
+                <div class="settings-color-grid">
+                  <label class="settings-control settings-color-control" for="bar-text-color"><span>Cor do número</span><input id="bar-text-color" type="color" value="#ffffff" aria-label="Cor do número das barras" /></label>
+                  <label class="settings-control" for="bar-font"><span>Fonte do número</span><select id="bar-font" class="font-choice"><option value="sans-serif">Padrão sem serifa</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option></select></label>
+                </div>
+              </div>
+              <div class="confirm-dialog-actions"><button type="button" class="confirm-cancel" data-close-appearance-dialog="appearance-bars-dialog">Fechar</button></div>
+            </dialog>
+
+            <dialog id="appearance-defenses-dialog" class="confirm-dialog settings-edit-dialog appearance-editor-dialog" aria-labelledby="appearance-defenses-title">
+              <div class="appearance-editor-heading"><div><h2 id="appearance-defenses-title">Defesas</h2><p id="appearance-defenses-context" class="appearance-editor-context">A cor do fundo é individual; fonte e cor do texto são compartilhadas.</p></div><button type="button" class="appearance-dialog-close-icon" data-close-appearance-dialog="appearance-defenses-dialog" aria-label="Fechar">×</button></div>
+              <div class="token-settings-panel" data-token-settings-panel="defenses">
+                <label class="settings-control" for="defense-size"><span>Tamanho das defesas</span><select id="defense-size"><option value="small">Pequenas</option><option value="large">Grandes</option></select></label>
+                <div class="settings-color-grid">
+                  <label class="settings-control settings-color-control" for="defense-color"><span>Cor do texto (todas)</span><input id="defense-color" type="color" value="#ffffff" aria-label="Cor do texto das defesas" /></label>
+                  <label class="settings-control" for="defense-font"><span>Fonte (todas)</span><select id="defense-font" class="font-choice"><option value="sans-serif">Padrão sem serifa</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option></select></label>
+                </div>
+                <div class="settings-color-grid defense-background-colors">
+                  <label class="settings-control settings-color-control" for="evasion-background-color"><span>Fundo de EVA</span><input id="evasion-background-color" type="color" value="#7198c8" aria-label="Cor de fundo de Evasão" /></label>
+                  <label class="settings-control settings-color-control" for="protection-background-color"><span>Fundo de PRO</span><input id="protection-background-color" type="color" value="#70a783" aria-label="Cor de fundo de Proteção" /></label>
+                  <label class="settings-control settings-color-control" for="conviction-background-color"><span>Fundo de CON</span><input id="conviction-background-color" type="color" value="#ac913e" aria-label="Cor de fundo de Convicção" /></label>
+                </div>
+              </div>
+              <div class="confirm-dialog-actions"><button type="button" class="confirm-cancel" data-close-appearance-dialog="appearance-defenses-dialog">Fechar</button></div>
+            </dialog>
+
+            <dialog id="appearance-names-dialog" class="confirm-dialog settings-edit-dialog appearance-editor-dialog" aria-labelledby="appearance-names-title">
+              <div class="appearance-editor-heading"><div><h2 id="appearance-names-title">Nome do personagem</h2><p id="appearance-names-context" class="appearance-editor-context">O tamanho máximo é calculado em relação à largura do token e ao comprimento do nome.</p></div><button type="button" class="appearance-dialog-close-icon" data-close-appearance-dialog="appearance-names-dialog" aria-label="Fechar">×</button></div>
+              <div class="token-settings-panel" data-token-settings-panel="names">
+                <label class="settings-control name-size-control" for="name-size"><span>Tamanho relativo à largura do token <output id="name-size-percent-value" for="name-size">0%</output></span><input id="name-size" type="range" min="0" max="100" step="1" value="0" /></label>
+                <div class="settings-color-grid">
+                  <label class="settings-control settings-color-control" for="name-color"><span>Cor do texto</span><input id="name-color" type="color" value="#ffffff" aria-label="Cor do nome" /></label>
+                  <label class="settings-control" for="name-font"><span>Fonte</span><select id="name-font" class="font-choice"><option value="sans-serif">Padrão sem serifa</option><option value="Arial">Arial</option><option value="serif">Serifada</option><option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="monospace">Monoespaçada</option><option value="Courier New">Courier New</option><option value="cursive">Manuscrita</option></select></label>
+                </div>
+              </div>
+              <div class="confirm-dialog-actions"><button type="button" class="confirm-cancel" data-close-appearance-dialog="appearance-names-dialog">Fechar</button></div>
+            </dialog>
           </div>
         </section>
 

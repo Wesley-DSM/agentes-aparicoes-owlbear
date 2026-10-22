@@ -1,4 +1,5 @@
 import OBR, { buildCurve, buildImage, buildText, isImage, Math2 } from "@owlbear-rodeo/sdk";
+import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
 
 // A&A token data. The sheet itself remains in the token's persistent metadata.
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
@@ -36,6 +37,7 @@ const DEFAULT_DISPLAY_SETTINGS = Object.freeze({
   nameColor: "#000000",
   nameFont: "serif",
   barPlacement: "bottom",
+  namePlacement: "bottom",
 });
 
 let sceneActive = false;
@@ -83,6 +85,7 @@ function normalizeDisplaySettings(raw) {
     nameColor: validColor(source.nameColor, DEFAULT_DISPLAY_SETTINGS.nameColor),
     nameFont: normalizeFont(source.nameFont),
     barPlacement: source.barPlacement === "top" ? "top" : "bottom",
+    namePlacement: source.namePlacement === "top" ? "top" : source.namePlacement === "bottom" ? "bottom" : (source.barPlacement === "top" ? "top" : "bottom"),
   };
 }
 
@@ -418,9 +421,11 @@ function makeTokenName(token, geometry, settings) {
   const name = String(token.name ?? "").trim();
   if (!name) return [];
   const fontFactor = 0.55;
-  const minimumFontSize = Math.max(2.5, Math.min(height * 0.94, width / Math.max(1, name.length * fontFactor)));
-  const widthFitFontSize = Math.max(minimumFontSize, width / Math.max(1, name.length * fontFactor));
-  const fontSize = minimumFontSize + (widthFitFontSize - minimumFontSize) * (Math.max(0, Math.min(100, Number(settings.nameSizePercent) || 0)) / 100);
+  const widthFitFontSize = Math.max(2.5, width / Math.max(1, name.length * fontFactor));
+  const fallbackMinimum = Math.max(2.5, Math.min(height * 0.18, widthFitFontSize * 0.48));
+  const fontSize = Number.isFinite(Number(geometry.fontSize))
+    ? Math.max(2.5, Number(geometry.fontSize))
+    : fallbackMinimum + (widthFitFontSize - fallbackMinimum) * (Math.max(0, Math.min(100, Number(settings.nameSizePercent) || 0)) / 100);
   const text = buildText()
     .position({ x, y })
     .plainText(name)
@@ -474,37 +479,46 @@ async function renderTokenBars(token, sheet, sceneDpi, role, settings) {
     : 0;
   const nameWidthForSizing = Math.max(1, bounds.width);
   const nameLengthForSizing = Math.max(1, String(token.name ?? "").trim().length);
-  const nameMinimumFontSize = Math.max(2.5, Math.min(bounds.height * 0.94, nameWidthForSizing / (nameLengthForSizing * 0.55)));
-  const nameFitFontSize = Math.max(nameMinimumFontSize, nameWidthForSizing / (nameLengthForSizing * 0.55));
+  const nameFitFontSize = Math.max(2.5, nameWidthForSizing / (nameLengthForSizing * 0.55));
+  // 0% keeps a readable default close to the prior large-name size. At 100%,
+  // average glyph width fills the token's width; both length and token size matter.
+  const nameMinimumFontSize = Math.max(2.5, Math.min(bounds.height * 0.18, nameFitFontSize * 0.48));
   const effectiveNameFontSize = nameMinimumFontSize + (nameFitFontSize - nameMinimumFontSize) * (Math.max(0, Math.min(100, Number(tokenNameSettings.nameSizePercent) || 0)) / 100);
-  const nameHeight = showName ? Math.max(8, Math.min(Math.max(20, bounds.height * 0.45), effectiveNameFontSize * 1.4)) : 0;
+  const nameHeight = showName ? Math.max(8, effectiveNameFontSize * 1.4) : 0;
   const tokenTop = center.y - bounds.height / 2;
   const tokenBottom = center.y + bounds.height / 2;
   const resourceStackHeight = resources.length ? height * resources.length + gap * (resources.length - 1) : 0;
   const hasShownDefenseValues = statsHeight > 0;
-  const groupHeight = resourceStackHeight + (hasShownDefenseValues ? statsHeight + (resourceStackHeight ? gap : 0) : 0);
-  let statsY = tokenBottom + gap;
-  let firstY = tokenBottom + gap;
-  let nameY = firstY + resourceStackHeight + (resourceStackHeight ? gap : 0);
-
-  if (settings.barPlacement === "top") {
-    const totalGroupHeight = groupHeight + (showName ? nameHeight + gap : 0);
-    const groupTop = tokenTop - (totalGroupHeight > 0 ? totalGroupHeight + gap : gap);
-    nameY = showName ? groupTop : groupTop;
-    firstY = groupTop + (showName ? nameHeight + gap : 0);
-    statsY = firstY + resourceStackHeight + (resourceStackHeight && hasShownDefenseValues ? gap : 0);
-  } else {
-    statsY = tokenBottom + gap;
-    firstY = statsY + (hasShownDefenseValues ? statsHeight + (resourceStackHeight ? gap : 0) : 0);
-    nameY = firstY + resourceStackHeight + ((resourceStackHeight || hasShownDefenseValues) ? gap : 0);
+  const groupHeights = {
+    name: showName ? nameHeight : 0,
+    bars: resourceStackHeight,
+    defenses: hasShownDefenseValues ? statsHeight : 0,
+  };
+  const layout = getTokenAppearanceLayout(settings.barPlacement, settings.namePlacement);
+  const groupsAbove = layout.above.filter((group) => groupHeights[group] > 0);
+  const groupsBelow = layout.below.filter((group) => groupHeights[group] > 0);
+  const aboveHeight = groupsAbove.reduce((total, group) => total + groupHeights[group], 0) + Math.max(0, groupsAbove.length - 1) * gap;
+  const groupY = {};
+  let upperCursor = tokenTop - gap - aboveHeight;
+  for (const group of groupsAbove) {
+    groupY[group] = upperCursor;
+    upperCursor += groupHeights[group] + gap;
   }
+  let lowerCursor = tokenBottom + gap;
+  for (const group of groupsBelow) {
+    groupY[group] = lowerCursor;
+    lowerCursor += groupHeights[group] + gap;
+  }
+  const nameY = groupY.name ?? tokenTop - gap - nameHeight;
+  const statsY = groupY.defenses ?? tokenBottom + gap;
+  const firstY = groupY.bars ?? tokenBottom + gap;
 
   const items = [];
 
   if (showName) {
     const nameWidth = width;
     const nameX = x;
-    items.push(...makeTokenName(token, { x: nameX, y: nameY, width: nameWidth, height: nameHeight }, tokenNameSettings));
+    items.push(...makeTokenName(token, { x: nameX, y: nameY, width: nameWidth, height: nameHeight, fontSize: effectiveNameFontSize }, tokenNameSettings));
   }
   if (showDefenseStats) {
     const statsWidth = isLargeDefense ? width : width * 0.76;
