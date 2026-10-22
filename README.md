@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.51.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.52.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -140,6 +140,16 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 
 
 
+
+## Ajustes da versão 0.52.0
+
+- Removido o tipo Simples/Marcial da configuração das armas; a escolha de perícia fica entre Armas Simples e Armas de Fogo.
+- Renomeados os efeitos defensivos de reação para Defletir e Aparar, e movido o campo de Espaços para junto da perícia da arma.
+- Armaduras agora configuram bases de Evasão e Proteção, às quais se somam Agilidade e Fortitude; escudos seguem como bônus adicionais.
+- Ataques no CHAT seguem o formato das rolagens de perícia: subtítulo com perícia e arma, quadrado verde para o dano, dados, DT editável e descrição formatada abaixo. O ataque não abre um popup para pedir a DT.
+- Dano e Críticos aparecem como traços destacados. Textos entre colchetes simples, como `[Dano 2d6]`, usam a mesma formatação de traço nas descrições.
+- Popup de suprimentos permite ativar/desativar o contador de usos.
+- Melhorias de organização, rótulos e campos dos popups de equipamentos.
 
 ## Ajustes da versão 0.51.0
 

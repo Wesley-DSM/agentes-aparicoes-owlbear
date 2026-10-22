@@ -337,32 +337,25 @@
             <div class="equipment-dialog-heading"><h2 id="equipment-dialog-title">Equipamento</h2><button id="equipment-dialog-close" type="button" aria-label="Fechar" class="remove-entry-button remove-icon-button">×</button></div>
             <label class="equipment-field"><span>Nome</span><input id="equipment-name" type="text" maxlength="140" required /></label>
             <div id="weapon-editor-fields" class="equipment-field-grid" hidden>
-              <label class="equipment-field"><span>Tipo</span><select id="equipment-weapon-class"><option value="Simples">Simples</option><option value="Marcial">Marcial</option></select></label>
               <label class="equipment-field"><span>Perícia</span><select id="equipment-weapon-skill"><option value="armas-simples">Armas Simples</option><option value="armas-de-fogo">Armas de Fogo</option></select></label>
+              <label class="equipment-field" id="equipment-spaces-field"><span>Espaços</span><input id="equipment-spaces" type="number" min="0" max="9999" step="1" value="1" /></label>
               <label class="equipment-field"><span>Dano</span><input id="equipment-damage" type="text" maxlength="100" placeholder="Força ou 1d6" required /></label>
               <label class="equipment-field"><span>Críticos</span><input id="equipment-critical" type="number" min="0" max="99" step="1" required /></label>
-              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span>Evasão por reação</span><input id="equipment-reaction-evasion" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span>Proteção por reação</span><input id="equipment-reaction-protection" type="number" min="-99" max="99" step="1" value="0" /></label></div>
+              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span>Defletir</span><input id="equipment-reaction-evasion" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span>Aparar</span><input id="equipment-reaction-protection" type="number" min="-99" max="99" step="1" value="0" /></label></div>
             </div>
             <div id="armor-editor-fields" class="equipment-field-grid" hidden>
               <label class="equipment-field"><span>Tipo</span><select id="equipment-armor-kind"><option value="armadura">Armadura</option><option value="escudo">Escudo</option></select></label>
               <label class="equipment-field equipment-check-field"><input id="equipment-equipped" type="checkbox" /><span>Em uso</span></label>
-              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span>Evasão</span><input id="equipment-evasion-bonus" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span>Proteção</span><input id="equipment-protection-bonus" type="number" min="-99" max="99" step="1" value="0" /></label></div>
-              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span>Defesa ativa: EVA</span><input id="equipment-active-evasion" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span>Defesa ativa: PRO</span><input id="equipment-active-protection" type="number" min="-99" max="99" step="1" value="0" /></label></div>
+              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span id="equipment-evasion-label">Evasão base</span><input id="equipment-evasion-bonus" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span id="equipment-protection-label">Proteção base</span><input id="equipment-protection-bonus" type="number" min="-99" max="99" step="1" value="0" /></label></div>
+              <p class="equipment-formula-hint" id="equipment-armor-formula">Evasão = base + Agilidade · Proteção = base + Fortitude</p>
+              <div class="equipment-field-grid equipment-subgrid"><label class="equipment-field"><span>Defesa ativa: Evasão</span><input id="equipment-active-evasion" type="number" min="-99" max="99" step="1" value="0" /></label><label class="equipment-field"><span>Defesa ativa: Proteção</span><input id="equipment-active-protection" type="number" min="-99" max="99" step="1" value="0" /></label></div>
             </div>
             <div id="supply-editor-fields" class="equipment-field-grid" hidden>
-              <label class="equipment-field"><span>Usos</span><input id="equipment-uses" type="number" min="0" max="9999" step="1" placeholder="Sem contador" /></label>
+              <label class="equipment-field equipment-check-field"><input id="equipment-uses-enabled" type="checkbox" /><span>Controlar usos</span></label>
+              <label class="equipment-field" id="equipment-uses-field"><span>Usos restantes</span><input id="equipment-uses" type="number" min="0" max="9999" step="1" placeholder="0" /></label>
             </div>
-            <label class="equipment-field"><span>Espaços</span><input id="equipment-spaces" type="number" min="0" max="9999" step="1" value="1" /></label>
             <label class="equipment-field"><span>Descrição</span><textarea id="equipment-description" rows="4" maxlength="4000"></textarea></label>
             <div class="confirm-dialog-actions"><button id="equipment-dialog-cancel" type="button" class="confirm-cancel">Cancelar</button><button id="equipment-dialog-save" type="button" class="confirm-secondary">Salvar</button></div>
-          </div>
-        </dialog>
-        <dialog id="weapon-attack-dialog" class="confirm-dialog weapon-attack-dialog" aria-labelledby="weapon-attack-title">
-          <div id="weapon-attack-form">
-            <div class="equipment-dialog-heading"><h2 id="weapon-attack-title">Atacar</h2><button id="weapon-attack-close" type="button" aria-label="Fechar" class="remove-entry-button remove-icon-button">×</button></div>
-            <label class="equipment-field"><span>DT do alvo</span><input id="weapon-attack-dt" type="number" min="0" max="9999" step="1" required inputmode="numeric" /></label>
-            <p id="weapon-attack-preview" class="weapon-attack-preview" hidden></p>
-            <div class="confirm-dialog-actions"><button id="weapon-attack-cancel" type="button" class="confirm-cancel">Cancelar</button><button id="weapon-attack-roll" type="button" class="confirm-secondary">Rolar ataque</button></div>
           </div>
         </dialog>
       </form>

@@ -2252,7 +2252,6 @@ button.initiative-detail-defense, button.initiative-detail-passive-skill { font-
 .equipment-check-field input { accent-color: #a72129; width: 16px; height: 16px; }
 .equipment-dialog .confirm-dialog-actions { margin-top: 5px; }
 .equipment-dialog [hidden] { display: none !important; }
-.weapon-attack-dialog { width: min(340px, calc(100% - 20px)); }
 .weapon-attack-preview { padding: 8px; border-radius: 6px; background: #111; color: #ccc; font-size: 10px; }
 #inventory-spaces-used { cursor: pointer; }
 :root[data-aa-theme="owlbear"] .equipment-card { border-color: color-mix(in srgb, var(--aa-owl-text, #eef0ff) 15%, transparent); background: var(--aa-owl-paper, #252b36); }
@@ -2271,4 +2270,40 @@ button.initiative-detail-defense, button.initiative-detail-passive-skill { font-
   .equipment-card-actions { justify-content: flex-start; }
   .defense-stat { min-height: 76px; }
   .equipment-dialog { padding: 11px; }
+}
+
+/* Equipment interaction refinements */
+.equipment-card { align-items: start; }
+.equipment-card-main { gap: 6px; }
+.equipment-card-traits { display: flex; flex-wrap: wrap; gap: 5px; max-width: 100%; }
+.equipment-card-traits .ability-trait { margin: 0; }
+.equipment-card-description { grid-column: 1 / -1; min-width: 0; margin: 0 0 1px; padding: 7px 8px 0; border-top: 1px solid #2c2c2c; color: #c3c3c3; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.equipment-card-description > :first-child { margin-top: 0; }
+.equipment-card-description > :last-child { margin-bottom: 0; }
+.equipment-card-description p { margin: 0 0 5px; }
+.equipment-formula-hint { grid-column: 1 / -1; margin: -2px 0 9px; color: #9c9c9c; font-size: 10px; line-height: 1.4; }
+#equipment-spaces-field { min-width: 0; }
+#equipment-uses-field[hidden] { display: none !important; }
+.equipment-dialog { width: min(410px, calc(100% - 18px)); padding: 16px; border-radius: 13px; }
+.equipment-dialog-heading { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #303030; }
+.equipment-dialog-heading h2 { font-size: 15px; letter-spacing: .1px; }
+.equipment-field { gap: 6px; margin-bottom: 11px; font-size: 10px; }
+.equipment-field input:not([type="checkbox"]), .equipment-field select, .equipment-field textarea { min-height: 37px; padding: 9px 10px; border-radius: 8px; }
+.equipment-field textarea { min-height: 92px; }
+.equipment-check-field { border: 1px solid #383838; border-radius: 8px; padding: 0 10px; min-height: 37px; }
+.equipment-formula-hint { padding: 7px 8px; border-radius: 6px; background: #1a1a1a; }
+.roll-history-weapon-dice-row { align-items: center; justify-content: flex-start; gap: 8px; }
+.roll-history-weapon-damage { display: flex; flex: 0 0 48px; width: 48px; height: 42px; align-items: center; justify-content: center; border: 1px solid #40865d; border-radius: 7px; color: #d5ffe2; background: #17482d; font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.roll-history-weapon-damage.is-failure { border-color: #555; color: #8d8d8d; background: #292929; }
+.roll-history-weapon-damage.is-success { border-color: #45a96c; color: #e0ffea; background: #17683b; }
+.roll-history-weapon-damage + .roll-history-dice { flex: 0 1 auto; }
+.roll-history-weapon-dice-row .roll-history-test-row { margin-left: auto; }
+.roll-history-weapon-description { margin-top: 8px; padding-top: 7px; border-top: 1px solid #323232; color: #b9b9b9; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.roll-history-weapon-description p { margin: 0 0 5px; }
+.roll-history-weapon-description > :first-child { margin-top: 0; }
+.roll-history-weapon-description > :last-child { margin-bottom: 0; }
+@media (max-width: 360px) {
+  .roll-history-weapon-dice-row { flex-wrap: wrap; }
+  .roll-history-weapon-damage { flex-basis: 43px; width: 43px; height: 38px; }
+  .roll-history-weapon-dice-row .roll-history-test-row { margin-left: 0; }
 }

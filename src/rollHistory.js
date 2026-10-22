@@ -1,4 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { calculateTestResult, activeDieValue } from "./diceRules.js";
+import { rollDamageExpression } from "./equipment.js";
 
 export const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 export const ROLL_HISTORY_KEY = `${EXTENSION_ID}/roll-history`;
@@ -145,6 +147,14 @@ function entryFromCompact(value) {
       inlineRolls: expandInlineRolls(value[7]), reactions: value[8],
     };
   }
+  if (value[0] === "w") {
+    return {
+      id: value[1], type: "weapon-attack", rolledAt: value[2], characterName: value[3], playerName: value[4],
+      weaponName: value[5], skillName: value[6], skillId: value[7], rank: value[8], dice: value[9], dt: value[10],
+      damageExpression: value[11], criticalBonus: value[12], strength: value[13], description: value[14],
+      damageRolls: value[15], damageTotal: value[16], tokenId: value[17] ?? "", reactions: value[18],
+    };
+  }
   return null;
 }
 
@@ -211,6 +221,33 @@ function normalizeEntry(rawValue) {
     };
   }
 
+  if (value.type === "weapon-attack" && typeof value.weaponName === "string" && typeof value.skillName === "string") {
+    const dice = normalizeDice(value.dice);
+    if (!dice) return null;
+    const damageRolls = (Array.isArray(value.damageRolls) ? value.damageRolls : [])
+      .filter((roll) => Number.isInteger(roll) && roll >= 1 && roll <= 1000).slice(0, 40);
+    const rawDamage = value.damageTotal;
+    const damageTotal = rawDamage === null || rawDamage === undefined || rawDamage === ""
+      ? null
+      : (Number.isFinite(Number(rawDamage)) ? Math.max(0, Math.min(99999, Number(rawDamage))) : null);
+    return {
+      ...common,
+      type: "weapon-attack",
+      weaponName: value.weaponName.trim().slice(0, 140),
+      skillName: value.skillName.slice(0, 100),
+      skillId: String(value.skillId ?? "").slice(0, 60),
+      rank: Math.max(1, Math.min(5, Number.parseInt(value.rank, 10) || dice.length)),
+      dice,
+      dt: normalizeDt(value.dt),
+      damageExpression: String(value.damageExpression ?? "").slice(0, 100),
+      criticalBonus: Math.max(0, Math.min(99, Number.parseInt(value.criticalBonus, 10) || 0)),
+      strength: Math.max(1, Math.min(5, Number.parseInt(value.strength, 10) || 1)),
+      description: String(value.description ?? "").slice(0, 500),
+      damageRolls,
+      damageTotal: damageTotal === null ? null : Math.trunc(damageTotal),
+    };
+  }
+
   if (value.type === "chat-message" && typeof value.message === "string") {
     return {
       ...common,
@@ -256,6 +293,11 @@ function compactLog(history) {
     if (entry.type === "chat-message") {
       return ["c", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.message, entry.tokenId, compactInlineRolls(entry.inlineRolls), reactions];
     }
+    if (entry.type === "weapon-attack") {
+      return ["w", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.weaponName, entry.skillName, entry.skillId,
+        entry.rank, compactDice(entry.dice), entry.dt, entry.damageExpression, entry.criticalBonus, entry.strength, entry.description,
+        entry.damageRolls, entry.damageTotal, entry.tokenId, reactions];
+    }
     return ["a", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.abilityName, entry.kind, reactions, entry.traits.join(", "), entry.description, entry.tokenId, compactInlineRolls(entry.inlineRolls)];
   });
 
@@ -266,8 +308,8 @@ function compactLog(history) {
   let size = serializedSize();
   if (size > maxBytes) {
     for (const entry of compact) {
-      if (entry[0] !== "a" && entry[0] !== "c") continue;
-      const fieldIndexes = entry[0] === "a" ? [9, 8] : [5];
+      if (entry[0] !== "a" && entry[0] !== "c" && entry[0] !== "w") continue;
+      const fieldIndexes = entry[0] === "a" ? [9, 8] : entry[0] === "w" ? [14, 5] : [5];
       for (const fieldIndex of fieldIndexes) {
         const value = entry[fieldIndex];
         if (typeof value !== "string" || !value.length || size <= maxBytes) continue;
@@ -315,13 +357,34 @@ export function appendRollHistory(value) {
   return historyWriteQueue;
 }
 
+function recalculateWeaponAttack(entry) {
+  const test = calculateTestResult(entry, entry.dt);
+  if (!test || !test.success) {
+    entry.damageTotal = null;
+    return;
+  }
+  let rollIndex = 0;
+  const storedRolls = Array.isArray(entry.damageRolls) ? [...entry.damageRolls] : [];
+  try {
+    const damage = rollDamageExpression(entry.damageExpression, entry.strength, test.criticals, entry.criticalBonus, (sides) => {
+      const stored = storedRolls[rollIndex++];
+      return Number.isInteger(stored) && stored >= 1 && stored <= sides ? stored : Math.floor(Math.random() * sides) + 1;
+    });
+    entry.damageRolls = damage.rolls;
+    entry.damageTotal = damage.total;
+  } catch {
+    entry.damageRolls = [];
+    entry.damageTotal = null;
+  }
+}
+
 export function updateRollHistoryEntry(entryId, patch) {
   const operation = async () => {
     const history = await getStoredHistory();
     const entry = history.find((item) => item.id === entryId);
     if (!entry) return { ok: false, reason: "missing", history };
 
-    if (Object.hasOwn(patch ?? {}, "dt") && (entry.type === "skill-roll" || entry.type === "manual-roll")) {
+    if (Object.hasOwn(patch ?? {}, "dt") && ["skill-roll", "manual-roll", "weapon-attack"].includes(entry.type)) {
       const rawDt = patch.dt;
       if (rawDt === null || rawDt === "") entry.dt = null;
       else {
@@ -332,7 +395,7 @@ export function updateRollHistoryEntry(entryId, patch) {
         entry.dt = parsedDt;
       }
     }
-    if (Object.hasOwn(patch ?? {}, "dice") && (entry.type === "skill-roll" || entry.type === "manual-roll")) {
+    if (Object.hasOwn(patch ?? {}, "dice") && ["skill-roll", "manual-roll", "weapon-attack"].includes(entry.type)) {
       const normalizedDice = normalizeDice(patch.dice, false);
       if (!normalizedDice) return { ok: false, reason: "invalid-dice", history };
       entry.dice = normalizedDice;
@@ -352,6 +415,7 @@ export function updateRollHistoryEntry(entryId, patch) {
       }
     }
 
+    if (entry.type === "weapon-attack") recalculateWeaponAttack(entry);
     return { ok: true, history: await saveHistory(history) };
   };
 
@@ -368,7 +432,7 @@ export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null
       : (["ability-use", "chat-message"].includes(entry?.type) ? entry.inlineRolls?.[inlineRollIndex] : null);
     const dice = inlineRoll
       ? inlineRoll.dice
-      : (entry && ["skill-roll", "manual-roll"].includes(entry.type) ? entry.dice : null);
+      : (entry && ["skill-roll", "manual-roll", "weapon-attack"].includes(entry.type) ? entry.dice : null);
     if (!entry || !dice) return { ok: false, reason: "missing", history };
     if (!Number.isInteger(dieIndex) || dieIndex < 0 || dieIndex >= dice.length) return { ok: false, reason: "invalid-die", history };
     if (!Number.isInteger(newValue) || newValue < 1 || newValue > 10) return { ok: false, reason: "invalid-value", history };
@@ -376,6 +440,7 @@ export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null
     const die = dice[dieIndex];
     if (die.rolls.length >= MAX_DIE_RESULTS) return { ok: false, reason: "reroll-limit", history };
     die.rolls.push(newValue);
+    if (entry.type === "weapon-attack") recalculateWeaponAttack(entry);
     return { ok: true, history: await saveHistory(history) };
   };
 

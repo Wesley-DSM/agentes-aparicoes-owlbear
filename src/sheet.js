@@ -45,7 +45,6 @@ const cancelDeleteTokenButton = el("cancel-delete-token");
 const initiativeButton = el("add-to-initiative");
 const inventoryList = el("inventory-list");
 const equipmentDialog = el("equipment-dialog");
-const weaponAttackDialog = el("weapon-attack-dialog");
 let editingEquipmentId = null;
 let editingEquipmentCategory = "supply";
 let editingEquipmentIsNew = false;
@@ -342,7 +341,7 @@ function makeField(labelText, input, extraClass = "") {
 function attachStaticMarkdownEditors() {
   for (const editor of [...form.querySelectorAll('input[type="text"], textarea')]) {
     if (editor.dataset.identityPreviewField === "true") continue;
-    if (editor.closest("#equipment-dialog, #weapon-attack-dialog")) continue;
+    if (editor.closest("#equipment-dialog")) continue;
     if (editor.closest(".formatted-editor")) continue;
     const parent = editor.parentNode;
     const nextSibling = editor.nextSibling;
@@ -549,16 +548,27 @@ function renderInventory(items) {
       const meta = document.createElement("span");
       meta.className = "equipment-card-meta";
       if (category === "weapon") {
-        const reaction = (item.reactionEvasion || 0) !== 0 || (item.reactionProtection || 0) !== 0
-          ? ` · Reação ${signedLabel(item.reactionEvasion, "EVA")} · ${signedLabel(item.reactionProtection, "PRO")}` : "";
-        meta.textContent = `${item.weaponClass || "Simples"} · ${item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples"} · Dano ${item.damage || "—"} · Críticos ${item.critical || "—"}${reaction}`;
+        meta.textContent = item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples";
+        const traits = document.createElement("span");
+        traits.className = "equipment-card-traits";
+        for (const traitText of [`[Dano ${item.damage || "—"}]`, `[Críticos ${item.critical || "—"}]`]) {
+          const trait = document.createElement("span");
+          trait.className = "ability-trait";
+          renderInlineMarkdown(trait, traitText);
+          traits.append(trait);
+        }
+        main.append(title, meta, traits);
       } else if (category === "armor") {
-        if (item.defaultEquipmentKey === "no-armor") meta.textContent = "Evasão 4 + Agilidade · Proteção Fortitude · Defesa ativa EVA +1";
-        else meta.textContent = `${item.armorKind === "escudo" ? "Escudo" : "Armadura"} · ${signedLabel(item.evasionBonus, "EVA")} · ${signedLabel(item.protectionBonus, "PRO")} · Defesa ativa ${signedLabel(item.activeEvasion, "EVA")} · ${signedLabel(item.activeProtection, "PRO")}${item.equipped ? " · Em uso" : ""}`;
+        if (item.armorKind === "escudo") {
+          meta.textContent = `Escudo · ${signedLabel(item.evasionBonus, "EVA")} · ${signedLabel(item.protectionBonus, "PRO")} · Defesa ativa ${signedLabel(item.activeEvasion, "EVA")} · ${signedLabel(item.activeProtection, "PRO")}${item.equipped ? " · Em uso" : ""}`;
+        } else {
+          meta.textContent = `${item.defaultEquipmentKey === "no-armor" ? "Padrão · " : "Armadura · "}Base EVA ${item.evasionBase} · Base PRO ${item.protectionBase} · Defesa ativa ${signedLabel(item.activeEvasion, "EVA")} · ${signedLabel(item.activeProtection, "PRO")}${item.equipped ? " · Em uso" : ""}`;
+        }
+        main.append(title, meta);
       } else {
-        meta.textContent = item.description.trim().split(/\s+/).slice(0, 16).join(" ") || "";
+        meta.textContent = item.usesEnabled ? `Usos restantes: ${item.uses}` : "";
+        main.append(title, meta);
       }
-      main.append(title, meta);
 
       const actions = document.createElement("div");
       actions.className = "equipment-card-actions";
@@ -567,7 +577,7 @@ function renderInventory(items) {
         attack.dataset.equipmentAction = "attack";
         attack.title = `Atacar com ${item.name || "arma"}`;
         actions.append(attack);
-        if ((item.reactionEvasion || 0) !== 0 || (item.reactionProtection || 0) !== 0) {
+        if ((item.defletir ?? item.reactionEvasion ?? 0) !== 0 || (item.aparar ?? item.reactionProtection ?? 0) !== 0) {
           const reaction = makeSmallButton(item.reactionActive ? "Reação ativa" : "Reagir", "equipment-action-button", "equipmentAction");
           reaction.dataset.equipmentAction = "reaction";
           reaction.setAttribute("aria-pressed", String(Boolean(item.reactionActive)));
@@ -585,7 +595,7 @@ function renderInventory(items) {
           equip.setAttribute("aria-pressed", String(Boolean(item.equipped)));
           actions.append(equip);
         }
-      } else if (String(item.uses ?? "").trim() !== "") {
+      } else if (item.usesEnabled && String(item.uses ?? "").trim() !== "") {
         const decrement = makeSmallButton("−", "equipment-uses-step", "equipmentAction");
         decrement.dataset.equipmentAction = "uses-down";
         decrement.setAttribute("aria-label", `Diminuir usos de ${item.name}`);
@@ -603,6 +613,12 @@ function renderInventory(items) {
       remove.setAttribute("aria-label", `Remover ${item.name || "equipamento"}`);
       actions.append(remove);
       card.append(spacesInput, main, actions);
+      if (item.description?.trim()) {
+        const description = document.createElement("div");
+        description.className = "equipment-card-description ability-description";
+        renderFormattedMarkdown(description, item.description);
+        card.append(description);
+      }
       fragment.append(card);
     }
     list.replaceChildren(fragment);
@@ -715,6 +731,15 @@ function updateDefenseDisplay(sheet = null) {
   return values;
 }
 
+function updateArmorEditorLabels(kind = el("equipment-armor-kind")?.value) {
+  const shield = kind === "escudo";
+  el("equipment-evasion-label").textContent = shield ? "Bônus de Evasão" : "Base de Evasão";
+  el("equipment-protection-label").textContent = shield ? "Bônus de Proteção" : "Base de Proteção";
+  el("equipment-armor-formula").textContent = shield
+    ? "Os bônus do escudo são somados à defesa calculada pela armadura."
+    : "Evasão = base + Agilidade · Proteção = base + Fortitude";
+}
+
 function openEquipmentEditor(category, item, { isNew = false } = {}) {
   if (!item || !equipmentDialog) return;
   editingEquipmentId = item.id;
@@ -722,24 +747,35 @@ function openEquipmentEditor(category, item, { isNew = false } = {}) {
   editingEquipmentIsNew = isNew;
   el("equipment-dialog-title").textContent = category === "weapon" ? "Arma" : category === "armor" ? "Armadura ou escudo" : "Suprimento";
   el("equipment-name").value = item.name ?? "";
-  el("equipment-spaces").value = String(item.spaces ?? (category === "supply" ? 1 : 0));
   el("equipment-description").value = item.description ?? "";
   el("weapon-editor-fields").hidden = category !== "weapon";
   el("armor-editor-fields").hidden = category !== "armor";
   el("supply-editor-fields").hidden = category !== "supply";
-  el("equipment-weapon-class").value = item.weaponClass === "Marcial" ? "Marcial" : "Simples";
+  const spacesField = el("equipment-spaces-field");
+  const targetFields = category === "weapon" ? el("weapon-editor-fields") : category === "armor" ? el("armor-editor-fields") : el("supply-editor-fields");
+  if (category === "weapon") {
+    targetFields.insertBefore(spacesField, el("equipment-damage").closest(".equipment-field"));
+  } else if (category === "armor") {
+    targetFields.append(spacesField);
+  } else {
+    targetFields.append(spacesField);
+  }
+  el("equipment-spaces").value = String(item.spaces ?? (category === "supply" ? 1 : 0));
   el("equipment-weapon-skill").value = item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
   el("equipment-damage").value = item.damage ?? "";
   el("equipment-critical").value = item.critical ?? "";
-  el("equipment-reaction-evasion").value = String(item.reactionEvasion ?? 0);
-  el("equipment-reaction-protection").value = String(item.reactionProtection ?? 0);
+  el("equipment-reaction-evasion").value = String(item.defletir ?? item.reactionEvasion ?? 0);
+  el("equipment-reaction-protection").value = String(item.aparar ?? item.reactionProtection ?? 0);
   el("equipment-armor-kind").value = item.armorKind === "escudo" ? "escudo" : "armadura";
   el("equipment-equipped").checked = Boolean(item.equipped);
-  el("equipment-evasion-bonus").value = String(item.evasionBonus ?? 0);
-  el("equipment-protection-bonus").value = String(item.protectionBonus ?? 0);
+  el("equipment-evasion-bonus").value = String(item.armorKind === "escudo" ? item.evasionBonus ?? 0 : item.evasionBase ?? (item.defaultEquipmentKey === "no-armor" ? 4 : 0));
+  el("equipment-protection-bonus").value = String(item.armorKind === "escudo" ? item.protectionBonus ?? 0 : item.protectionBase ?? 0);
   el("equipment-active-evasion").value = String(item.activeEvasion ?? 0);
   el("equipment-active-protection").value = String(item.activeProtection ?? 0);
+  el("equipment-uses-enabled").checked = Boolean(item.usesEnabled ?? (item.uses !== "" && item.uses != null));
   el("equipment-uses").value = item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(item.uses);
+  el("equipment-uses-field").hidden = !el("equipment-uses-enabled").checked;
+  updateArmorEditorLabels();
   if (typeof equipmentDialog.showModal === "function") equipmentDialog.showModal();
   el("equipment-name").focus();
 }
@@ -762,21 +798,15 @@ function saveEquipmentEditor() {
   const spaces = Math.max(0, Math.min(9999, nonNegativeInteger(el("equipment-spaces").value, 0)));
   let item = readInventoryFromForm().find((entry) => entry.id === editingEquipmentId);
   if (!item) return;
-  item = {
-    ...item,
-    name,
-    spaces,
-    description: el("equipment-description").value.slice(0, 4000),
-  };
+  item = { ...item, name, spaces, description: el("equipment-description").value.slice(0, 4000) };
   if (editingEquipmentCategory === "weapon") {
     item = {
       ...item,
-      weaponClass: el("equipment-weapon-class").value === "Marcial" ? "Marcial" : "Simples",
       skill: el("equipment-weapon-skill").value === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
       damage: el("equipment-damage").value.trim().slice(0, 100),
       critical: String(Math.max(0, Math.min(99, Number.parseInt(el("equipment-critical").value, 10) || 0))),
-      reactionEvasion: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-reaction-evasion").value, 10) || 0)),
-      reactionProtection: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-reaction-protection").value, 10) || 0)),
+      defletir: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-reaction-evasion").value, 10) || 0)),
+      aparar: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-reaction-protection").value, 10) || 0)),
     };
   } else if (editingEquipmentCategory === "armor") {
     const equipped = el("equipment-equipped").checked;
@@ -786,21 +816,24 @@ function saveEquipmentEditor() {
         if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
       }
     }
+    const defenseValueEvasion = Math.max(-99, Math.min(99, Number.parseInt(el("equipment-evasion-bonus").value, 10) || 0));
+    const defenseValueProtection = Math.max(-99, Math.min(99, Number.parseInt(el("equipment-protection-bonus").value, 10) || 0));
     item = {
-      ...item,
-      armorKind,
-      equipped,
-      evasionBonus: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-evasion-bonus").value, 10) || 0)),
-      protectionBonus: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-protection-bonus").value, 10) || 0)),
+      ...item, armorKind, equipped,
+      evasionBase: armorKind === "armadura" ? defenseValueEvasion : (item.evasionBase ?? 4),
+      protectionBase: armorKind === "armadura" ? defenseValueProtection : (item.protectionBase ?? 0),
+      evasionBonus: armorKind === "escudo" ? defenseValueEvasion : 0,
+      protectionBonus: armorKind === "escudo" ? defenseValueProtection : 0,
       activeEvasion: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-active-evasion").value, 10) || 0)),
       activeProtection: Math.max(-99, Math.min(99, Number.parseInt(el("equipment-active-protection").value, 10) || 0)),
     };
   } else {
+    const usesEnabled = el("equipment-uses-enabled").checked;
     const rawUses = String(el("equipment-uses").value ?? "").trim();
-    item.uses = rawUses === "" ? "" : String(Math.max(0, Math.min(9999, Number.parseInt(rawUses, 10) || 0)));
+    item.usesEnabled = usesEnabled;
+    item.uses = !usesEnabled ? "" : String(Math.max(0, Math.min(9999, rawUses === "" ? 1 : (Number.parseInt(rawUses, 10) || 0))));
   }
   const entries = readInventoryFromForm().map((entry) => entry.id === item.id ? item : entry);
-  // When activating an armor, ensure the mutually exclusive unarmored/armor state is updated.
   if (editingEquipmentCategory === "armor" && item.equipped && item.armorKind === "armadura") {
     for (const entry of entries) {
       if (entry.id !== item.id && entry.category === "armor" && entry.armorKind !== "escudo") entry.equipped = false;
@@ -879,27 +912,8 @@ async function toggleDefenseActive() {
   setNotice(defenseActiveDraft ? "Defesa Ativa aplicada." : "Defesa Ativa encerrada.", "success");
 }
 
-function openWeaponAttack(item) {
-  if (!item || item.category !== "weapon" || isRestricted()) return;
-  attackingWeaponId = item.id;
-  el("weapon-attack-title").textContent = `Atacar com ${item.name || "arma"}`;
-  el("weapon-attack-dt").value = "";
-  el("weapon-attack-preview").hidden = true;
-  weaponAttackDialog.showModal();
-  el("weapon-attack-dt").focus();
-}
-
-async function performWeaponAttack() {
-  if (!attackingWeaponId || !activeTokenId || !activeToken || isRestricted()) return;
-  const dtRaw = String(el("weapon-attack-dt").value ?? "").trim();
-  const dt = dtRaw === "" ? NaN : Number(dtRaw);
-  if (!Number.isInteger(dt) || dt < 0 || dt > 9999) {
-    el("weapon-attack-dt").focus();
-    setNotice("Informe a DT do alvo.", "warning");
-    return;
-  }
-  const button = el("weapon-attack-roll");
-  button.disabled = true;
+async function openWeaponAttack(item) {
+  if (!item || item.category !== "weapon" || isRestricted() || !activeTokenId || !activeToken) return;
   try {
     if (autoSaveTimer) {
       clearTimeout(autoSaveTimer);
@@ -909,43 +923,39 @@ async function performWeaponAttack() {
     const latestItems = await OBR.scene.items.getItems([activeTokenId]);
     activeToken = latestItems[0] ?? activeToken;
     const sheet = readSheetFromForm(activeToken);
-    const weapon = sheet.inventory.find((item) => item.id === attackingWeaponId && item.category === "weapon");
+    const weapon = sheet.inventory.find((entry) => entry.id === item.id && entry.category === "weapon");
     if (!weapon) throw new Error("A arma não foi encontrada na ficha.");
     const skillId = weapon.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
     const skill = ALL_SKILLS.find((entry) => entry.id === skillId);
     const rank = rankFromValue(sheet.skills.find((entry) => entry.id === skillId)?.rank ?? 1);
-    const rolled = Array.from({ length: rank }, secureRandomD10);
-    const test = evaluateSkillTest(rolled, dt);
+    const dice = Array.from({ length: rank }, secureRandomD10).sort((a, b) => b - a).map((value) => ({ rolls: [value] }));
     const strength = rankFromValue(sheet.skills.find((entry) => entry.id === "forca")?.rank ?? 1);
-    const damage = test.success
-      ? rollDamageExpression(weapon.damage, strength, test.criticals, weapon.critical, (sides) => Math.floor(Math.random() * sides) + 1)
-      : { base: 0, criticalBonus: Number.parseInt(weapon.critical, 10) || 0, criticals: test.criticals, total: 0, rolls: [] };
-    const damageDice = damage.rolls.length ? ` [dados de dano: ${damage.rolls.join(", ")}]` : "";
-    const status = test.success ? "ACERTO" : "FALHA";
-    const message = [
-      `${sheet.characterName} ataca com ${weapon.name}.`,
-      `Teste: ${skill?.name ?? "Armas Simples"} (${rank}) · Dados: ${test.dice.join(", ")} · DT ${dt}`,
-      `Maior dado: ${test.highest} · Críticos: ${test.criticals} · Resultado: ${test.result} · ${status}`,
-      `Dano: ${damage.total}${damageDice}${test.success && test.criticals ? ` (${damage.base} + ${damage.criticalBonus} × ${test.criticals} críticos)` : ""}`,
-    ].join("\n");
     let playerName = "Jogador";
     try { playerName = (await OBR.player.getName()) || "Jogador"; } catch { /* keep fallback */ }
     await appendRollHistory({
-      type: "chat-message",
+      type: "weapon-attack",
       id: createEntryId("weapon-attack"),
       characterName: sheet.characterName,
       playerName,
-      message,
       tokenId: activeTokenId,
       rolledAt: Date.now(),
+      weaponName: weapon.name || "Arma sem nome",
+      skillName: skill?.name ?? "Armas Simples",
+      skillId,
+      rank,
+      dice,
+      dt: null,
+      damageExpression: weapon.damage,
+      criticalBonus: Number.parseInt(weapon.critical, 10) || 0,
+      strength,
+      description: weapon.description ?? "",
+      damageRolls: [],
+      damageTotal: null,
     });
-    weaponAttackDialog.close();
-    setNotice(`Ataque com ${weapon.name} enviado para o LOG.`, "success");
+    setNotice(`Ataque com ${weapon.name} enviado ao CHAT. Preencha a DT na rolagem.`, "success");
   } catch (error) {
     console.error("A&A: falha ao realizar ataque com arma.", error);
-    setNotice(error?.message || "Não foi possível calcular o ataque.", "error");
-  } finally {
-    button.disabled = false;
+    setNotice(error?.message || "Não foi possível registrar o ataque.", "error");
   }
 }
 
@@ -1606,10 +1616,10 @@ function refreshEmptyState(container, emptyText, cardSelector) {
 function addInventoryEntry(category = "supply") {
   const entries = readInventoryFromForm();
   const defaultItem = category === "weapon"
-    ? { category, name: "", spaces: 0, weaponClass: "Simples", skill: "armas-simples", damage: "", critical: "", description: "", reactionEvasion: 0, reactionProtection: 0 }
+    ? { category, name: "", spaces: 0, skill: "armas-simples", damage: "", critical: "", description: "", defletir: 0, aparar: 0 }
     : category === "armor"
-      ? { category, name: "", armorKind: "armadura", spaces: 0, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, equipped: false, description: "" }
-      : { category: "supply", name: "", spaces: 1, uses: "", description: "" };
+      ? { category, name: "", armorKind: "armadura", spaces: 0, evasionBase: 4, protectionBase: 0, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, equipped: false, description: "" }
+      : { category: "supply", name: "", spaces: 1, usesEnabled: false, uses: "", description: "" };
   const item = { id: createEntryId("item"), ...defaultItem };
   entries.push(item);
   renderInventory(entries);
@@ -1892,14 +1902,16 @@ visibilityButton.addEventListener("click", () => void togglePlayerVisibility());
 tokenNameButton.addEventListener("click", () => void openNameAppearanceDialog());
 el("defense-active-toggle").addEventListener("click", () => void toggleDefenseActive());
 el("equipment-dialog-save").addEventListener("click", saveEquipmentEditor);
+el("equipment-armor-kind").addEventListener("change", () => updateArmorEditorLabels());
+el("equipment-uses-enabled").addEventListener("change", () => {
+  const enabled = el("equipment-uses-enabled").checked;
+  el("equipment-uses-field").hidden = !enabled;
+  if (enabled && el("equipment-uses").value === "") el("equipment-uses").value = "1";
+});
 el("equipment-dialog-cancel").addEventListener("click", cancelEquipmentEditor);
 el("equipment-dialog-close").addEventListener("click", cancelEquipmentEditor);
 equipmentDialog.addEventListener("click", (event) => { if (event.target === equipmentDialog) cancelEquipmentEditor(); });
 equipmentDialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelEquipmentEditor(); });
-el("weapon-attack-roll").addEventListener("click", () => void performWeaponAttack());
-el("weapon-attack-cancel").addEventListener("click", () => weaponAttackDialog.close());
-el("weapon-attack-close").addEventListener("click", () => weaponAttackDialog.close());
-weaponAttackDialog.addEventListener("click", (event) => { if (event.target === weaponAttackDialog) weaponAttackDialog.close(); });
 initiativeButton.addEventListener("click", () => void toggleActiveTokenInitiative());
 el("cancel-name-appearance").addEventListener("click", () => nameAppearanceDialog.close());
 el("close-name-appearance")?.addEventListener("click", () => nameAppearanceDialog.close());
@@ -2269,6 +2281,7 @@ form.addEventListener("input", (event) => {
 });
 form.addEventListener("change", (event) => {
   if (event.target.matches("select")) {
+    if (event.target.matches("#equipment-armor-kind")) updateArmorEditorLabels();
     if (event.target.matches("[data-identity-preview-field]")) updateIdentityFieldPreview(event.target);
     if (event.target.matches("[data-skill-rank]")) updateDefenseDisplay();
     scheduleAutoSave();

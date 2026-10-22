@@ -1125,6 +1125,17 @@ function updateTestResultForCard(card, rawDt = null) {
   const input = card?.querySelector("[data-roll-dt]");
   if (!entry || !output || !input) return;
   const result = calculateTestResult(entry, rawDt === null ? input.value : rawDt);
+  const damageTile = card.querySelector("[data-weapon-damage]");
+  if (damageTile) {
+    damageTile.classList.remove("is-success", "is-failure");
+    if (!input.value || !result) damageTile.textContent = "–";
+    else if (!result.success) { damageTile.textContent = "−"; damageTile.classList.add("is-failure"); }
+    else {
+      damageTile.textContent = entry.damageTotal === null || entry.damageTotal === undefined ? "…" : String(entry.damageTotal);
+      damageTile.classList.add("is-success");
+    }
+    damageTile.setAttribute("aria-label", !input.value || !result ? "Dano pendente da DT" : result.success ? `Dano ${entry.damageTotal ?? "pendente"}` : "Ataque falhou, sem dano");
+  }
   if (!input.value || !result) {
     output.textContent = "";
     output.hidden = true;
@@ -1206,11 +1217,16 @@ function makeRollHistoryEntry(entry) {
     subtitle.className = "roll-history-subtitle";
     subtitle.textContent = `${entry.dice.length}d10`;
     headingContent.append(subtitle);
+  } else if (entry.type === "weapon-attack") {
+    const subtitle = document.createElement("div");
+    subtitle.className = "roll-history-subtitle";
+    subtitle.textContent = `${entry.skillName} • ${entry.weaponName}`;
+    headingContent.append(subtitle);
   }
 
   const details = document.createElement("div");
   details.className = "roll-history-details";
-  if (entry.type === "skill-roll" || entry.type === "manual-roll") {
+  if (entry.type === "skill-roll" || entry.type === "manual-roll" || entry.type === "weapon-attack") {
     const resultOutput = document.createElement("strong");
     resultOutput.className = "roll-history-test-result";
     resultOutput.dataset.rollResult = entry.id;
@@ -1228,9 +1244,18 @@ function makeRollHistoryEntry(entry) {
     card.append(abilityTitle);
   }
 
-  if (entry.type === "skill-roll" || entry.type === "manual-roll") {
+  if (entry.type === "skill-roll" || entry.type === "manual-roll" || entry.type === "weapon-attack") {
     const diceRow = document.createElement("div");
-    diceRow.className = "roll-history-dice-row";
+    diceRow.className = `roll-history-dice-row${entry.type === "weapon-attack" ? " roll-history-weapon-dice-row" : ""}`;
+    if (entry.type === "weapon-attack") {
+      const damageTile = document.createElement("div");
+      damageTile.className = "roll-history-weapon-damage";
+      damageTile.dataset.weaponDamage = entry.id;
+      damageTile.textContent = entry.dt === null || entry.dt === undefined ? "–" : (entry.damageTotal === null || entry.damageTotal === undefined ? "−" : String(entry.damageTotal));
+      if (entry.damageTotal !== null && entry.damageTotal !== undefined) damageTile.classList.add("is-success");
+      damageTile.title = "Dano do ataque. Defina a DT para calcular o resultado.";
+      diceRow.append(damageTile);
+    }
     const dice = document.createElement("div");
     dice.className = "roll-history-dice";
     dice.setAttribute("aria-label", `Resultados atuais: ${entry.dice.map(activeDieValue).join(", ")}`);
@@ -1278,12 +1303,19 @@ function makeRollHistoryEntry(entry) {
     dtInput.dataset.rollDt = entry.id;
     dtInput.value = entry.dt === null || entry.dt === undefined ? "" : String(entry.dt);
     dtInput.placeholder = "DT";
-    dtInput.setAttribute("aria-label", `Dificuldade do teste de ${entry.type === "skill-roll" ? entry.skillName : entry.rollName}`);
+    dtInput.setAttribute("aria-label", `Dificuldade do teste de ${entry.type === "skill-roll" ? entry.skillName : entry.type === "weapon-attack" ? `${entry.skillName} com ${entry.weaponName}` : entry.rollName}`);
     dtLabel.append(dtInput);
     testRow.append(dtLabel);
     diceRow.append(testRow);
     card.append(diceRow);
     if (entry.dt !== null && entry.dt !== undefined) updateTestResultForCard(card, entry.dt);
+  }
+
+  if (entry.type === "weapon-attack" && String(entry.description ?? "").trim()) {
+    const description = document.createElement("div");
+    description.className = "roll-history-weapon-description ability-description";
+    renderFormattedMarkdown(description, entry.description);
+    card.append(description);
   }
 
   if (entry.type === "ability-use" || entry.type === "chat-message") {

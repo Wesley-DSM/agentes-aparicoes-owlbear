@@ -55,47 +55,56 @@
 
   function makeDefaultEquipment() {
     return [
-      { id: "default-punch", defaultEquipmentKey: "punch", category: "weapon", name: "Punho", spaces: 0, description: "Multiataque, Marcial - Empunhadura: 1 Espaços: 0 Engates: 0 Discreta - Corporal: 1m - Aparar, Defletir.", weaponClass: "Marcial", skill: "armas-simples", damage: "Força", critical: "1", reactionEvasion: 0, reactionProtection: 0, reactionActive: false },
-      { id: "default-no-armor", defaultEquipmentKey: "no-armor", category: "armor", armorKind: "armadura", name: "Sem Armadura", spaces: 0, description: "Evasão 4 + Agilidade. Proteção = Fortitude. Espaços: 0, Engates: 0.", evasionBonus: 0, protectionBonus: 0, activeEvasion: 1, activeProtection: 0, equipped: true },
+      { id: "default-punch", defaultEquipmentKey: "punch", category: "weapon", name: "Punho", spaces: 0, description: "Multiataque, Marcial · Empunhadura: 1 · Espaços: 0 · Engates: 0 · Discreta · Corporal: 1m · Aparar, Defletir.", skill: "armas-simples", damage: "Força", critical: "1", defletir: 0, aparar: 0, reactionActive: false },
+      { id: "default-no-armor", defaultEquipmentKey: "no-armor", category: "armor", armorKind: "armadura", name: "Sem Armadura", spaces: 0, description: "Evasão: 4 + Agilidade · Proteção: Fortitude · Espaços: 0 · Engates: 0.", evasionBase: 4, protectionBase: 0, evasionBonus: 0, protectionBonus: 0, activeEvasion: 1, activeProtection: 0, equipped: true },
     ];
   }
 
   function normalizeEquipment(items, initialized = false) {
     const result = Array.isArray(items) ? items.filter((item) => item && typeof item === "object").map((item) => {
       const category = ["weapon", "armor", "supply"].includes(item.category) ? item.category : "supply";
+      const armorKind = item.armorKind === "escudo" ? "escudo" : "armadura";
       const int = (value) => Number.isFinite(Number.parseInt(value, 10)) ? Math.max(-999, Math.min(999, Number.parseInt(value, 10))) : 0;
+      const hasBases = item.evasionBase !== undefined || item.protectionBase !== undefined;
+      const usesEnabled = item.usesEnabled === undefined ? (item.uses !== "" && item.uses !== null && item.uses !== undefined) : Boolean(item.usesEnabled);
       const normalized = {
         id: typeof item.id === "string" && item.id ? item.id : createId("item"),
         defaultEquipmentKey: ["punch", "no-armor"].includes(item.defaultEquipmentKey) ? item.defaultEquipmentKey : "",
         category, name: String(item.name ?? "").slice(0, 140), spaces: nonNegative(item.spaces, category === "supply" ? 1 : 0),
         description: String(item.description ?? "").slice(0, 4000),
-        uses: item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(nonNegative(item.uses, 0)),
-        weaponClass: item.weaponClass === "Marcial" ? "Marcial" : "Simples", skill: item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
+        usesEnabled: category === "supply" && usesEnabled,
+        uses: category === "supply" && usesEnabled ? String(nonNegative(item.uses, 1)) : "",
+        skill: item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
         damage: String(item.damage ?? "").slice(0, 100), critical: String(item.critical ?? "").slice(0, 30),
-        armorKind: item.armorKind === "escudo" ? "escudo" : "armadura", equipped: Boolean(item.equipped),
-        evasionBonus: int(item.evasionBonus), protectionBonus: int(item.protectionBonus), activeEvasion: int(item.activeEvasion), activeProtection: int(item.activeProtection),
-        reactionEvasion: int(item.reactionEvasion), reactionProtection: int(item.reactionProtection), reactionActive: Boolean(item.reactionActive),
+        armorKind, equipped: Boolean(item.equipped),
+        evasionBase: hasBases ? int(item.evasionBase) : (item.defaultEquipmentKey === "no-armor" ? 4 : 4 + int(item.evasionBonus)),
+        protectionBase: hasBases ? int(item.protectionBase) : (item.defaultEquipmentKey === "no-armor" ? 0 : int(item.protectionBonus)),
+        evasionBonus: int(item.evasionBonus), protectionBonus: int(item.protectionBonus),
+        activeEvasion: int(item.activeEvasion), activeProtection: int(item.activeProtection),
+        defletir: int(item.defletir ?? item.reactionEvasion), aparar: int(item.aparar ?? item.reactionProtection),
+        reactionActive: Boolean(item.reactionActive),
       };
       if (category !== "armor") normalized.equipped = true;
       if (category !== "weapon") normalized.reactionActive = false;
-      if (category !== "supply") normalized.uses = "";
       if (!normalized.defaultEquipmentKey && normalized.name.trim().toLowerCase() === "punho" && category === "weapon") normalized.defaultEquipmentKey = "punch";
       if (!normalized.defaultEquipmentKey && normalized.name.trim().toLowerCase() === "sem armadura" && category === "armor") normalized.defaultEquipmentKey = "no-armor";
       return normalized;
     }) : [];
-    if (!initialized) {
-      for (const item of makeDefaultEquipment()) if (!result.some((existing) => existing.defaultEquipmentKey === item.defaultEquipmentKey)) result.push(item);
-    }
+    if (!initialized) for (const item of makeDefaultEquipment()) if (!result.some((existing) => existing.defaultEquipmentKey === item.defaultEquipmentKey)) result.unshift(item);
     return result;
   }
 
   function calcDefenses(skills = [], inventory = [], defenseActive = false) {
     const rank = (id) => rankValue(skills.find((skill) => skill.id === id)?.rank ?? 1);
-    const armor = inventory.filter((item) => item.category === "armor" && item.equipped);
+    const bodyArmor = inventory.filter((item) => item.category === "armor" && item.armorKind !== "escudo" && item.equipped);
+    const shields = inventory.filter((item) => item.category === "armor" && item.armorKind === "escudo" && item.equipped);
     const weapons = inventory.filter((item) => item.category === "weapon" && item.reactionActive);
+    const body = bodyArmor[bodyArmor.length - 1];
+    const baseEvasion = body ? body.evasionBase : 4;
+    const baseProtection = body ? body.protectionBase : 0;
     return {
-      evasion: 4 + rank("agilidade") + armor.reduce((sum, item) => sum + item.evasionBonus + (defenseActive ? item.activeEvasion : 0), 0) + weapons.reduce((sum, item) => sum + item.reactionEvasion, 0),
-      protection: rank("fortitude") + armor.reduce((sum, item) => sum + item.protectionBonus + (defenseActive ? item.activeProtection : 0), 0) + weapons.reduce((sum, item) => sum + item.reactionProtection, 0),
+      evasion: baseEvasion + rank("agilidade") + shields.reduce((sum, item) => sum + item.evasionBonus, 0) + (defenseActive ? [...bodyArmor, ...shields].reduce((sum, item) => sum + item.activeEvasion, 0) : 0) + weapons.reduce((sum, item) => sum + item.defletir, 0),
+      protection: baseProtection + rank("fortitude") + shields.reduce((sum, item) => sum + item.protectionBonus, 0) + (defenseActive ? [...bodyArmor, ...shields].reduce((sum, item) => sum + item.activeProtection, 0) : 0) + weapons.reduce((sum, item) => sum + item.aparar, 0),
       conviction: rank("vontade"),
     };
   }
@@ -285,6 +294,7 @@
       .replace(/~~(.+?)~~/g, "<del>$1</del>")
       .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
     html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    html = html.replace(/(?<!\[)\[([^\[\]]+)\](?!\])/g, '<span class="ability-trait markdown-inline-trait">$1</span>');
     return html;
   }
 
@@ -351,7 +361,7 @@
 
   function attachStaticEditors() {
     for (const editor of [...form.querySelectorAll('input[type="text"], textarea')]) {
-      if (editor.dataset.identityPreviewField === "true" || editor.closest("#equipment-dialog, #weapon-attack-dialog") || editor.closest(".formatted-editor")) continue;
+      if (editor.dataset.identityPreviewField === "true" || editor.closest("#equipment-dialog") || editor.closest(".formatted-editor")) continue;
       if (editor instanceof HTMLTextAreaElement) editor.dataset.formatReplace = "true";
       const parent = editor.parentNode;
       const nextSibling = editor.nextSibling;
@@ -466,25 +476,31 @@
         const title = document.createElement("span"); title.className = "equipment-card-title"; title.textContent = item.name || "Novo item";
         const meta = document.createElement("span"); meta.className = "equipment-card-meta";
         if (category === "weapon") {
-          const reaction = item.reactionEvasion || item.reactionProtection ? ` · Reação EVA ${item.reactionEvasion >= 0 ? "+" : ""}${item.reactionEvasion} · PRO ${item.reactionProtection >= 0 ? "+" : ""}${item.reactionProtection}` : "";
-          meta.textContent = `${item.weaponClass} · ${item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples"} · Dano ${item.damage || "—"} · Críticos ${item.critical || "—"}${reaction}`;
-        } else if (category === "armor") meta.textContent = item.defaultEquipmentKey === "no-armor" ? "Evasão 4 + Agilidade · Proteção Fortitude · Defesa ativa EVA +1" : `${item.armorKind === "escudo" ? "Escudo" : "Armadura"} · EVA ${item.evasionBonus >= 0 ? "+" : ""}${item.evasionBonus} · PRO ${item.protectionBonus >= 0 ? "+" : ""}${item.protectionBonus} · Defesa ativa EVA ${item.activeEvasion >= 0 ? "+" : ""}${item.activeEvasion} · PRO ${item.activeProtection >= 0 ? "+" : ""}${item.activeProtection}${item.equipped ? " · Em uso" : ""}`;
-        else meta.textContent = item.description || "";
-        main.append(title, meta);
+          meta.textContent = item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples";
+          const traits = document.createElement("span"); traits.className = "equipment-card-traits";
+          for (const value of [`Dano ${item.damage || "—"}`, `Críticos ${item.critical || "—"}`]) { const trait = document.createElement("span"); trait.className = "ability-trait"; trait.textContent = value; traits.append(trait); }
+          main.append(title, meta, traits);
+        } else if (category === "armor") {
+          if (item.armorKind === "escudo") meta.textContent = `Escudo · EVA ${item.evasionBonus >= 0 ? "+" : ""}${item.evasionBonus} · PRO ${item.protectionBonus >= 0 ? "+" : ""}${item.protectionBonus} · Defesa ativa EVA ${item.activeEvasion >= 0 ? "+" : ""}${item.activeEvasion} · PRO ${item.activeProtection >= 0 ? "+" : ""}${item.activeProtection}${item.equipped ? " · Em uso" : ""}`;
+          else meta.textContent = `${item.defaultEquipmentKey === "no-armor" ? "Padrão" : "Armadura"} · Base EVA ${item.evasionBase} · Base PRO ${item.protectionBase} · Defesa ativa EVA ${item.activeEvasion >= 0 ? "+" : ""}${item.activeEvasion} · PRO ${item.activeProtection >= 0 ? "+" : ""}${item.activeProtection}${item.equipped ? " · Em uso" : ""}`;
+          main.append(title, meta);
+        } else { meta.textContent = item.usesEnabled ? `Usos restantes: ${item.uses}` : ""; main.append(title, meta); }
         const actions = document.createElement("div"); actions.className = "equipment-card-actions";
         const addAction = (label, action, className = "equipment-action-button") => { const button = smallButton(label, className, "equipmentAction"); button.dataset.equipmentAction = action; actions.append(button); return button; };
         if (category === "weapon") {
           addAction("Atacar", "attack", "equipment-action-button equipment-attack-button");
-          if (item.reactionEvasion || item.reactionProtection) addAction(item.reactionActive ? "Reação ativa" : "Reagir", "reaction");
+          if (item.defletir || item.aparar) addAction(item.reactionActive ? "Reação ativa" : "Reagir", "reaction");
         } else if (category === "armor") {
           if (item.defaultEquipmentKey === "no-armor") { const badge = document.createElement("span"); badge.className = "equipment-state-badge"; badge.textContent = "Padrão"; actions.append(badge); }
           else addAction(item.equipped ? "Em uso" : "Equipar", "toggle-equipped", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`);
         }
-        else if (String(item.uses ?? "").trim() !== "") {
+        else if (item.usesEnabled && String(item.uses ?? "").trim() !== "") {
           addAction("−", "uses-down", "equipment-uses-step"); const count = document.createElement("output"); count.className = "equipment-uses-count"; count.textContent = item.uses; actions.append(count); addAction("+", "uses-up", "equipment-uses-step");
         }
         const remove = smallButton("×", "remove-entry-button remove-icon-button equipment-remove-button", "removeInventory", "Remover item"); actions.append(remove);
-        card.append(spaces, main, actions); fragment.append(card);
+        card.append(spaces, main, actions);
+        if (String(item.description ?? "").trim()) { const description = document.createElement("div"); description.className = "equipment-card-description ability-description"; description.innerHTML = markdownHtml(item.description); card.append(description); }
+        fragment.append(card);
       }
       container.replaceChildren(fragment);
     }
@@ -500,31 +516,46 @@
     });
   }
 
+  function updateArmorEditorLabels(kind = byId("equipment-armor-kind")?.value) {
+    const shield = kind === "escudo";
+    byId("equipment-evasion-label").textContent = shield ? "Bônus de Evasão" : "Base de Evasão";
+    byId("equipment-protection-label").textContent = shield ? "Bônus de Proteção" : "Base de Proteção";
+    byId("equipment-armor-formula").textContent = shield ? "Os bônus do escudo são somados às defesas calculadas pela armadura." : "Evasão = base + Agilidade · Proteção = base + Fortitude";
+  }
+
   function openEquipmentEditor(category, item, { isNew = false } = {}) {
     if (!item) return;
     editingEquipmentId = item.id; editingEquipmentCategory = category; editingEquipmentIsNew = isNew;
     byId("equipment-dialog-title").textContent = category === "weapon" ? "Arma" : category === "armor" ? "Armadura ou escudo" : "Suprimento";
-    byId("equipment-name").value = item.name ?? ""; byId("equipment-spaces").value = String(item.spaces ?? (category === "supply" ? 1 : 0));
+    byId("equipment-name").value = item.name ?? "";
     byId("equipment-description").value = item.description ?? "";
     byId("weapon-editor-fields").hidden = category !== "weapon"; byId("armor-editor-fields").hidden = category !== "armor"; byId("supply-editor-fields").hidden = category !== "supply";
-    byId("equipment-weapon-class").value = item.weaponClass === "Marcial" ? "Marcial" : "Simples";
+    const spacesField = byId("equipment-spaces-field");
+    const targetFields = category === "weapon" ? byId("weapon-editor-fields") : category === "armor" ? byId("armor-editor-fields") : byId("supply-editor-fields");
+    if (category === "weapon") targetFields.insertBefore(spacesField, byId("equipment-damage").closest(".equipment-field"));
+    else targetFields.append(spacesField);
+    byId("equipment-spaces").value = String(item.spaces ?? (category === "supply" ? 1 : 0));
     byId("equipment-weapon-skill").value = item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
     byId("equipment-damage").value = item.damage ?? ""; byId("equipment-critical").value = item.critical ?? "";
-    byId("equipment-reaction-evasion").value = String(item.reactionEvasion ?? 0); byId("equipment-reaction-protection").value = String(item.reactionProtection ?? 0);
+    byId("equipment-reaction-evasion").value = String(item.defletir ?? item.reactionEvasion ?? 0); byId("equipment-reaction-protection").value = String(item.aparar ?? item.reactionProtection ?? 0);
     byId("equipment-armor-kind").value = item.armorKind === "escudo" ? "escudo" : "armadura"; byId("equipment-equipped").checked = Boolean(item.equipped);
-    byId("equipment-evasion-bonus").value = String(item.evasionBonus ?? 0); byId("equipment-protection-bonus").value = String(item.protectionBonus ?? 0);
+    byId("equipment-evasion-bonus").value = String(item.armorKind === "escudo" ? item.evasionBonus ?? 0 : item.evasionBase ?? (item.defaultEquipmentKey === "no-armor" ? 4 : 0));
+    byId("equipment-protection-bonus").value = String(item.armorKind === "escudo" ? item.protectionBonus ?? 0 : item.protectionBase ?? 0);
     byId("equipment-active-evasion").value = String(item.activeEvasion ?? 0); byId("equipment-active-protection").value = String(item.activeProtection ?? 0);
+    byId("equipment-uses-enabled").checked = Boolean(item.usesEnabled ?? (item.uses !== "" && item.uses != null));
     byId("equipment-uses").value = item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(item.uses);
+    byId("equipment-uses-field").hidden = !byId("equipment-uses-enabled").checked;
+    updateArmorEditorLabels();
     byId("equipment-dialog").showModal(); byId("equipment-name").focus();
   }
 
   function addEquipment(category) {
     const sheet = readSheetFromForm();
     const item = category === "weapon"
-      ? { id: createId("item"), category, name: "", spaces: 0, weaponClass: "Simples", skill: "armas-simples", damage: "", critical: "", reactionEvasion: 0, reactionProtection: 0, description: "" }
+      ? { id: createId("item"), category, name: "", spaces: 0, skill: "armas-simples", damage: "", critical: "", defletir: 0, aparar: 0, description: "" }
       : category === "armor"
-        ? { id: createId("item"), category, name: "", spaces: 0, armorKind: "armadura", equipped: false, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, description: "" }
-        : { id: createId("item"), category: "supply", name: "", spaces: 1, uses: "", description: "" };
+        ? { id: createId("item"), category, name: "", spaces: 0, armorKind: "armadura", equipped: false, evasionBase: 4, protectionBase: 0, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, description: "" }
+        : { id: createId("item"), category: "supply", name: "", spaces: 1, usesEnabled: false, uses: "", description: "" };
     sheet.inventory.push(item); renderInventory(sheet.inventory); openEquipmentEditor(category, item, { isNew: true });
   }
 
@@ -532,22 +563,26 @@
     const name = byId("equipment-name").value.trim();
     if (!name) { setNotice("Informe o nome do equipamento.", "error"); byId("equipment-name").focus(); return; }
     if (editingEquipmentCategory === "weapon" && (!byId("equipment-damage").value.trim() || byId("equipment-critical").value.trim() === "")) { setNotice("Preencha Dano e Críticos da arma.", "error"); return; }
-    const entries = readEquipmentList();
-    const current = entries.find((item) => item.id === editingEquipmentId); if (!current) return;
+    const entries = readEquipmentList(); const current = entries.find((item) => item.id === editingEquipmentId); if (!current) return;
     const item = { ...current, name: name.slice(0, 140), spaces: nonNegative(byId("equipment-spaces").value, 0), description: byId("equipment-description").value.slice(0, 4000) };
     if (editingEquipmentCategory === "weapon") Object.assign(item, {
-      weaponClass: byId("equipment-weapon-class").value === "Marcial" ? "Marcial" : "Simples",
       skill: byId("equipment-weapon-skill").value === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
       damage: byId("equipment-damage").value.trim(), critical: String(nonNegative(byId("equipment-critical").value, 0, 99)),
-      reactionEvasion: Number.parseInt(byId("equipment-reaction-evasion").value, 10) || 0, reactionProtection: Number.parseInt(byId("equipment-reaction-protection").value, 10) || 0,
+      defletir: Number.parseInt(byId("equipment-reaction-evasion").value, 10) || 0,
+      aparar: Number.parseInt(byId("equipment-reaction-protection").value, 10) || 0,
     });
     if (editingEquipmentCategory === "armor") {
       item.armorKind = byId("equipment-armor-kind").value === "escudo" ? "escudo" : "armadura"; item.equipped = byId("equipment-equipped").checked;
-      item.evasionBonus = Number.parseInt(byId("equipment-evasion-bonus").value, 10) || 0; item.protectionBonus = Number.parseInt(byId("equipment-protection-bonus").value, 10) || 0;
+      const eva = Number.parseInt(byId("equipment-evasion-bonus").value, 10) || 0; const pro = Number.parseInt(byId("equipment-protection-bonus").value, 10) || 0;
+      item.evasionBase = item.armorKind === "armadura" ? eva : (item.evasionBase ?? 4); item.protectionBase = item.armorKind === "armadura" ? pro : (item.protectionBase ?? 0);
+      item.evasionBonus = item.armorKind === "escudo" ? eva : 0; item.protectionBonus = item.armorKind === "escudo" ? pro : 0;
       item.activeEvasion = Number.parseInt(byId("equipment-active-evasion").value, 10) || 0; item.activeProtection = Number.parseInt(byId("equipment-active-protection").value, 10) || 0;
       if (item.equipped && item.armorKind !== "escudo") for (const other of entries) if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
     }
-    if (editingEquipmentCategory === "supply") item.uses = String(byId("equipment-uses").value).trim() === "" ? "" : String(nonNegative(byId("equipment-uses").value, 0));
+    if (editingEquipmentCategory === "supply") {
+      item.usesEnabled = byId("equipment-uses-enabled").checked;
+      const raw = String(byId("equipment-uses").value).trim(); item.uses = !item.usesEnabled ? "" : String(nonNegative(raw === "" ? 1 : raw, 0));
+    }
     const next = entries.map((entry) => entry.id === item.id ? item : entry);
     if (item.category === "armor" && item.equipped && item.armorKind !== "escudo") for (const other of next) if (other.id !== item.id && other.category === "armor" && other.armorKind !== "escudo") other.equipped = false;
     if (item.category === "armor") {
@@ -582,37 +617,78 @@
     renderInventory(entries);
   }
 
-  function attackWeapon(item) {
-    if (!item) return;
-    attackingWeaponId = item.id; byId("weapon-attack-title").textContent = `Atacar com ${item.name || "arma"}`;
-    byId("weapon-attack-dt").value = ""; byId("weapon-attack-preview").hidden = true;
-    byId("weapon-attack-dialog").showModal(); byId("weapon-attack-dt").focus();
+  const standaloneAttackStates = new Map();
+  let standaloneAttackCounter = 0;
+
+  function ensureStandaloneAttackLog() {
+    let panel = byId("standalone-attack-log");
+    if (panel) return panel;
+    panel = document.createElement("section"); panel.className = "panel standalone-attack-log-panel"; panel.id = "standalone-attack-log";
+    const heading = document.createElement("div"); heading.className = "panel-heading";
+    const title = document.createElement("h2"); title.textContent = "Rolagens de Ataque"; heading.append(title); panel.append(heading);
+    const list = document.createElement("div"); list.className = "standalone-attack-log-list"; panel.append(list);
+    const inventoryPanel = byId("inventory-tab")?.querySelector(".equipment-inventory-panel");
+    if (inventoryPanel) inventoryPanel.after(panel); else byId("inventory-tab")?.append(panel);
+    return panel;
   }
 
-  function runStandaloneAttack() {
-    const dt = Number(byId("weapon-attack-dt").value);
-    if (byId("weapon-attack-dt").value.trim() === "" || !Number.isInteger(dt) || dt < 0) { setNotice("Informe a DT do alvo.", "error"); return; }
-    const sheet = readSheetFromForm(); const weapon = sheet.inventory.find((item) => item.id === attackingWeaponId);
+  function attackWeapon(item) {
+    if (!item) return;
+    const sheet = readSheetFromForm(); const weapon = sheet.inventory.find((entry) => entry.id === item.id && entry.category === "weapon");
     if (!weapon) return;
     const skillId = weapon.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples";
-    const rank = rankValue(sheet.skills.find((skill) => skill.id === skillId)?.rank ?? 1);
+    const skill = ALL_SKILLS.find((entry) => entry.id === skillId);
+    const rank = rankValue(sheet.skills.find((entry) => entry.id === skillId)?.rank ?? 1);
     const dice = Array.from({ length: rank }, () => Math.floor(Math.random() * 10) + 1).sort((a, b) => b - a);
-    const criticals = dice.filter((die, index) => die === 10 || (index > 0 && die >= dt)).length;
-    const result = dice[0] + criticals; const success = result >= dt;
-    const strength = rankValue(sheet.skills.find((skill) => skill.id === "forca")?.rank ?? 1);
-    let base = 0; const damageRolls = [];
-    const expression = String(weapon.damage ?? "").replace(/força/gi, String(strength));
-    const terms = expression.match(/[+-]?\s*(?:\d*d\d+|\d+)/gi) ?? [];
-    if (terms.join("").replace(/\s/g, "") !== expression.replace(/\s/g, "")) { setNotice("Dano inválido. Use Força, um número ou dados como 1d6+2.", "error"); return; }
-    for (const term of terms) {
-      const sign = term.trim().startsWith("-") ? -1 : 1; const atom = term.replace(/[+-]/g, "").trim(); const match = atom.match(/^(\d*)d(\d+)$/i);
-      if (match) { const count = Number(match[1] || 1); const sides = Number(match[2]); if (count < 1 || count > 20 || sides < 2 || sides > 1000) { setNotice("Expressão de dano fora dos limites.", "error"); return; } for (let index = 0; index < count; index += 1) { const value = Math.floor(Math.random() * sides) + 1; base += sign * value; damageRolls.push(value); } }
-      else base += sign * Number(atom);
+    const state = { id: `standalone-attack-${++standaloneAttackCounter}`, weaponName: weapon.name || "Arma sem nome", skillName: skill?.name ?? "Armas Simples", dice, dt: "", damageExpression: weapon.damage, criticalBonus: Number.parseInt(weapon.critical, 10) || 0, strength: rankValue(sheet.skills.find((entry) => entry.id === "forca")?.rank ?? 1), description: weapon.description ?? "", damageRolls: [], damageTotal: null };
+    standaloneAttackStates.set(state.id, state);
+    const log = ensureStandaloneAttackLog().querySelector(".standalone-attack-log-list");
+    const card = document.createElement("article"); card.className = "roll-history-entry standalone-attack-entry"; card.dataset.standaloneAttackEntry = state.id;
+    const heading = document.createElement("div"); heading.className = "roll-history-subtitle"; heading.textContent = `${state.skillName} • ${state.weaponName}`; card.append(heading);
+    const diceRow = document.createElement("div"); diceRow.className = "roll-history-dice-row roll-history-weapon-dice-row";
+    const damageTile = document.createElement("div"); damageTile.className = "roll-history-weapon-damage"; damageTile.dataset.standaloneDamage = state.id; damageTile.textContent = "–"; diceRow.append(damageTile);
+    const diceWrap = document.createElement("div"); diceWrap.className = "roll-history-dice";
+    for (const value of dice) { const die = document.createElement("span"); die.className = value === 10 ? "roll-history-die roll-history-die-ten" : "roll-history-die"; die.textContent = String(value); diceWrap.append(die); }
+    diceRow.append(diceWrap);
+    const testRow = document.createElement("div"); testRow.className = "roll-history-test-row";
+    const label = document.createElement("label"); label.className = "roll-history-dt-label"; label.textContent = "DT";
+    const dtInput = document.createElement("input"); dtInput.type = "number"; dtInput.min = "0"; dtInput.max = "9999"; dtInput.step = "1"; dtInput.inputMode = "numeric"; dtInput.className = "roll-history-dt-input"; dtInput.placeholder = "DT"; dtInput.dataset.standaloneAttackDt = state.id; label.append(dtInput); testRow.append(label); diceRow.append(testRow); card.append(diceRow);
+    const result = document.createElement("strong"); result.className = "roll-history-test-result"; result.dataset.standaloneAttackResult = state.id; result.hidden = true; card.append(result);
+    if (state.description.trim()) { const description = document.createElement("div"); description.className = "roll-history-weapon-description ability-description"; description.innerHTML = markdownHtml(state.description); card.append(description); }
+    log.append(card);
+    setNotice("Ataque rolado. Preencha a DT no registro para calcular o dano.", "info");
+    dtInput.focus();
+  }
+
+  function updateStandaloneAttack(id, rawDt) {
+    const state = standaloneAttackStates.get(id); if (!state) return;
+    const card = document.querySelector(`[data-standalone-attack-entry="${id}"]`); if (!card) return;
+    const tile = card.querySelector(`[data-standalone-damage="${id}"]`); const output = card.querySelector(`[data-standalone-attack-result="${id}"]`);
+    if (String(rawDt ?? "").trim() === "") { state.dt = ""; state.damageTotal = null; tile.textContent = "–"; tile.classList.remove("is-success", "is-failure"); output.hidden = true; output.textContent = ""; return; }
+    const dt = Number(rawDt); if (!Number.isInteger(dt) || dt < 0 || dt > 9999) return;
+    state.dt = dt;
+    const criticals = state.dice.filter((die, index) => die === 10 || (index > 0 && die >= dt)).length;
+    const result = state.dice[0] + criticals; const success = result >= dt;
+    if (!success) {
+      state.damageTotal = null; tile.textContent = "−"; tile.classList.remove("is-success"); tile.classList.add("is-failure");
+    } else {
+      try {
+        const expression = String(state.damageExpression ?? "").replace(/força/gi, String(state.strength));
+        const terms = expression.match(/[+-]?\s*(?:\d*d\d+|\d+)/gi) ?? [];
+        if (!terms.length || terms.join("").replace(/\s/g, "") !== expression.replace(/\s/g, "")) throw new Error("Expressão de dano inválida.");
+        let base = 0; let rollIndex = 0; const reused = [...state.damageRolls]; const rolls = [];
+        for (const term of terms) {
+          const sign = term.trim().startsWith("-") ? -1 : 1; const atom = term.replace(/[+-]/g, "").trim(); const dieMatch = atom.match(/^(\d*)d(\d+)$/i);
+          if (dieMatch) {
+            const count = Number(dieMatch[1] || 1); const sides = Number(dieMatch[2]);
+            if (count < 1 || count > 20 || sides < 2 || sides > 1000) throw new Error("Expressão de dano fora dos limites.");
+            for (let i = 0; i < count; i += 1) { const value = Number.isInteger(reused[rollIndex]) ? reused[rollIndex] : Math.floor(Math.random() * sides) + 1; rollIndex += 1; rolls.push(value); base += sign * value; }
+          } else base += sign * Number(atom);
+        }
+        state.damageRolls = rolls; state.damageTotal = Math.max(0, base + criticals * state.criticalBonus); tile.textContent = String(state.damageTotal); tile.classList.add("is-success"); tile.classList.remove("is-failure");
+      } catch (error) { tile.textContent = "!"; tile.classList.remove("is-success", "is-failure"); output.textContent = error.message; output.hidden = false; return; }
     }
-    const bonus = Number.parseInt(weapon.critical, 10) || 0; const damage = success ? Math.max(0, base + criticals * bonus) : 0;
-    const message = `${sheet.characterName}: ${weapon.name} · ${dice.join(", ")} · DT ${dt} · Resultado ${result} (${success ? "acerto" : "falha"}) · Críticos ${criticals} · Dano ${damage}${damageRolls.length ? ` [${damageRolls.join(", ")}]` : ""}. No HTML independente, o ataque é apenas simulado e não é enviado ao chat do Owlbear.`;
-    byId("weapon-attack-preview").textContent = message; byId("weapon-attack-preview").hidden = false;
-    setNotice(message, success ? "info" : "error"); byId("weapon-attack-dialog").close();
+    output.hidden = false; output.dataset.result = success ? "success" : "failure"; output.textContent = `${success ? "Sucesso" : "Falha"}. Total ${result}, ${criticals} ${criticals === 1 ? "crítico" : "críticos"}.`;
   }
 
   function renderAbilities(container, abilities, kind) {
@@ -784,8 +860,6 @@
     if (target.closest("#defense-active-toggle")) { defenseActiveDraft = !defenseActiveDraft; updateDefenseDisplay(); setNotice(defenseActiveDraft ? "Defesa Ativa aplicada." : "Defesa Ativa encerrada.", "info"); return; }
     if (target.closest("#equipment-dialog-save")) { saveEquipmentEditor(); return; }
     if (target.closest("#equipment-dialog-cancel, #equipment-dialog-close")) { cancelEquipmentEditor(); return; }
-    if (target.closest("#weapon-attack-roll")) { runStandaloneAttack(); return; }
-    if (target.closest("#weapon-attack-cancel, #weapon-attack-close")) { byId("weapon-attack-dialog").close(); return; }
     if (target.closest("#edit-token-name-appearance")) { event.preventDefault(); openNameAppearanceDialog(); return; }
     if (target.closest("#cancel-name-appearance")) { event.preventDefault(); byId("name-appearance-dialog").close(); return; }
     if (target.closest("#save-name-appearance")) { event.preventDefault(); saveNameAppearance(); return; }
@@ -875,11 +949,21 @@
     if (event.target?.id === "inventory-spaces-editor" && event.key === "Escape") { event.preventDefault(); finishInventorySpacesEdit(false); }
   });
 
-  for (const dialogId of ["name-appearance-dialog", "resource-settings-dialog", "equipment-dialog", "weapon-attack-dialog"]) {
+  for (const dialogId of ["name-appearance-dialog", "resource-settings-dialog", "equipment-dialog"]) {
     const dialog = byId(dialogId);
     dialog?.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   }
   form.addEventListener("submit", (event) => event.preventDefault());
+  document.addEventListener("input", (event) => {
+    const attackDt = event.target.closest?.("[data-standalone-attack-dt]");
+    if (attackDt) updateStandaloneAttack(attackDt.dataset.standaloneAttackDt, attackDt.value);
+  });
+  byId("equipment-armor-kind").addEventListener("change", () => updateArmorEditorLabels());
+  byId("equipment-uses-enabled").addEventListener("change", () => {
+    byId("equipment-uses-field").hidden = !byId("equipment-uses-enabled").checked;
+    if (byId("equipment-uses-enabled").checked && byId("equipment-uses").value === "") byId("equipment-uses").value = "1";
+  });
+
   form.addEventListener("input", (event) => {
     const field = event.target;
     if (field?.id === "character-name") { byId("selected-name").textContent = field.value.trim() || "Personagem"; document.title = `${field.value.trim() || "Personagem"} | Ficha A&A`; }

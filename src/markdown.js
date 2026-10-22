@@ -2,7 +2,7 @@ import { resolveSkillReference } from "./inlineRolls.js";
 
 const MEDIA_PATTERN = /^\[\[(https?:\/\/[^\]\s]+)\]\]$/i;
 const INLINE_REFERENCE_PATTERN = /^\[\[\s*(?!https?:\/\/)([^\]]+?)\s*\]\]$/i;
-const INLINE_PATTERN = /(\[\[(?:https?:\/\/[^\]\s]+)\]\]|\[\[\s*(?!https?:\/\/)[^\]\n]+?\s*\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
+const INLINE_PATTERN = /(\[\[(?:https?:\/\/[^\]\s]+)\]\]|\[\[\s*(?!https?:\/\/)[^\]\n]+?\s*\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\[[^\]\n]+\]|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
 
 function normalizedInlineLabel(value) {
   const content = String(value ?? "").replace(/^@/, "").trim();
@@ -164,6 +164,15 @@ function appendInline(parent, source, context = { rollIndex: 0, inlineRolls: [],
           parent.append(document.createTextNode(token));
         }
       } else {
+        const traitMatch = token.match(/^\[([^\]\n]+)\]$/);
+        if (traitMatch) {
+          const trait = document.createElement("span");
+          trait.className = "ability-trait markdown-inline-trait";
+          trait.textContent = traitMatch[1];
+          parent.append(trait);
+          cursor = match.index + token.length;
+          continue;
+        }
         let tagName = "span";
         let content = token;
         if ((token.startsWith("**") && token.endsWith("**")) || (token.startsWith("__") && token.endsWith("__"))) {
@@ -280,5 +289,5 @@ export function renderFormattedMarkdown(container, source, options = {}) {
 
 export function containsMarkdown(source) {
   const text = String(source ?? "");
-  return /\[\[https?:\/\/[^\]\s]+\]\]|\[\[\s*(?!https?:\/\/)[^\]\n]+?\s*\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|(^|[^\w])\*[^*\s][^*\n]*\*(?=$|[^\w])|(^|[^\w])_[^_\s][^_\n]*_(?=$|[^\w])|^\s{0,3}#{1,3}\s|^\s{0,3}[-*+]\s+|^\s{0,3}\d+[.)]\s+|^\s{0,3}>\s?/m.test(text);
+  return /\[\[https?:\/\/[^\]\s]+\]\]|\[\[\s*(?!https?:\/\/)[^\]\n]+?\s*\]\]|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\[[^\]\n]+\]|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|`[^`\n]+`|(^|[^\w])\*[^*\s][^*\n]*\*(?=$|[^\w])|(^|[^\w])_[^_\s][^_\n]*_(?=$|[^\w])|^\s{0,3}#{1,3}\s|^\s{0,3}[-*+]\s+|^\s{0,3}\d+[.)]\s+|^\s{0,3}>\s?/m.test(text);
 }

@@ -43,15 +43,15 @@ test("legacy inventory entries migrate to supplies and receive defaults once", (
 
 test("defenses derive from skills and only equipped armor affects defense", () => {
   const inventory = [
-    { category: "armor", equipped: true, evasionBonus: -1, protectionBonus: 2, activeEvasion: 2, activeProtection: 1 },
-    { category: "armor", equipped: false, evasionBonus: 9, protectionBonus: 9, activeEvasion: 9, activeProtection: 9 },
+    { category: "armor", armorKind: "armadura", equipped: true, evasionBase: 3, protectionBase: 2, activeEvasion: 2, activeProtection: 1 },
+    { category: "armor", armorKind: "armadura", equipped: false, evasionBase: 9, protectionBase: 9, activeEvasion: 9, activeProtection: 9 },
   ];
   assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: false }), { evasion: 6, protection: 4, conviction: 4 });
   assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: true }), { evasion: 8, protection: 5, conviction: 4 });
 });
 
 test("weapon reaction bonuses affect Evasion and Protection, never Conviction", () => {
-  const inventory = [{ category: "weapon", reactionActive: true, reactionEvasion: 1, reactionProtection: 2 }];
+  const inventory = [{ category: "weapon", reactionActive: true, defletir: 1, aparar: 2 }];
   assert.deepEqual(calculateDefenses({ skills, inventory }), { evasion: 8, protection: 4, conviction: 4 });
 });
 
@@ -67,4 +67,32 @@ test("damage expressions support Força, dice, and per-critical bonuses", () => 
   assert.deepEqual(fixed, { base: 3, criticalBonus: 1, criticals: 2, total: 5, rolls: [] });
   const dice = rollDamageExpression("1d6+2", 3, 1, "2", () => 4);
   assert.deepEqual(dice, { base: 6, criticalBonus: 2, criticals: 1, total: 8, rolls: [4] });
+});
+
+test("armors use initial defense values before adding Agility and Fortitude", () => {
+  const inventory = [
+    { category: "armor", armorKind: "armadura", equipped: true, evasionBase: 1, protectionBase: 3, activeEvasion: 2, activeProtection: 0 },
+  ];
+  assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: false }), { evasion: 4, protection: 5, conviction: 4 });
+  assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: true }), { evasion: 6, protection: 5, conviction: 4 });
+});
+
+test("shields add bonuses to the equipped armor without changing Conviction", () => {
+  const inventory = [
+    { category: "armor", armorKind: "armadura", equipped: true, evasionBase: 4, protectionBase: 0 },
+    { category: "armor", armorKind: "escudo", equipped: true, evasionBonus: 1, protectionBonus: 2, activeEvasion: 1 },
+  ];
+  assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: false }), { evasion: 8, protection: 4, conviction: 4 });
+  assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: true }), { evasion: 9, protection: 4, conviction: 4 });
+});
+
+test("new and legacy supply counters normalize to an explicit enabled state", () => {
+  const [noCounter, withCounter] = normalizeEquipment([
+    { id: "a", category: "supply", name: "Lanterna", uses: "" },
+    { id: "b", category: "supply", name: "Kit", uses: "2" },
+  ]);
+  assert.equal(noCounter.usesEnabled, false);
+  assert.equal(noCounter.uses, "");
+  assert.equal(withCounter.usesEnabled, true);
+  assert.equal(withCounter.uses, "2");
 });
