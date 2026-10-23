@@ -120,12 +120,15 @@ function setOwlbearProperties(theme) {
 function applySavedTheme(owlbearPalette) {
   const choice = readChoice();
   const root = document.documentElement;
+  const customization = readCustomization();
   root.dataset.aaTheme = choice;
   if (choice === "owlbear") {
     setOwlbearProperties(owlbearPalette);
   } else {
-    setCustomProperties(readCustomization());
+    setCustomProperties(customization);
   }
+  // The slider's full range maps to square at 0 and a full pill at the maximum.
+  root.style.setProperty("--aa-equipment-damage-radius", `${Math.round(customization.radius / 16 * 50)}%`);
   return choice;
 }
 

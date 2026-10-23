@@ -115,6 +115,55 @@ export function evaluateSkillTest(dice, dt) {
   return { dice: sorted, highest, criticals, result, success: result >= target, dt: target };
 }
 
+/** Build an auditable, ordered breakdown of an already-rolled weapon damage formula. */
+export function getDamageCalculationParts(expression, strength, criticals, criticalBonus, damageRolls = []) {
+  const source = String(expression ?? "").trim();
+  if (!source) return [];
+  const matcher = /([+-]?)\s*(Força|\d*d\d+|\d+)/gi;
+  const terms = [];
+  let match;
+  let cursor = 0;
+  while ((match = matcher.exec(source)) !== null) {
+    if (source.slice(cursor, match.index).trim()) return [];
+    terms.push({ sign: match[1] === "-" ? -1 : 1, raw: match[2] });
+    cursor = matcher.lastIndex;
+  }
+  if (!terms.length || source.slice(cursor).trim()) return [];
+
+  const parts = [];
+  let rollIndex = 0;
+  const strengthValue = Math.max(1, Number.parseInt(strength, 10) || 1);
+  for (const term of terms) {
+    if (/^força$/i.test(term.raw)) {
+      parts.push({ label: "Força", value: strengthValue, sign: term.sign });
+      continue;
+    }
+    const dice = term.raw.match(/^(\d*)d(\d+)$/i);
+    if (dice) {
+      const count = Number.parseInt(dice[1] || "1", 10);
+      const sides = Number.parseInt(dice[2], 10);
+      if (count < 1 || count > 20 || sides < 2 || sides > 1000) return [];
+      for (let index = 0; index < count; index += 1) {
+        const rolled = Number(damageRolls?.[rollIndex]);
+        rollIndex += 1;
+        if (!Number.isInteger(rolled) || rolled < 1 || rolled > sides) return [];
+        parts.push({ label: "Dano Base", value: rolled, sign: term.sign, die: `${rolled}/${sides}` });
+      }
+      continue;
+    }
+    const numeric = Number.parseInt(term.raw, 10);
+    if (!Number.isFinite(numeric)) return [];
+    parts.push({ label: "Dano Base", value: Math.abs(numeric), sign: term.sign * (numeric < 0 ? -1 : 1) });
+  }
+
+  const criticalCount = Math.max(0, Math.min(99, Number.parseInt(criticals, 10) || 0));
+  const criticalValue = Math.max(0, Math.min(99, Number.parseInt(criticalBonus, 10) || 0));
+  for (let index = 0; index < criticalCount; index += 1) {
+    if (criticalValue > 0) parts.push({ label: "Crítico", value: criticalValue, sign: 1 });
+  }
+  return parts;
+}
+
 export function rollDamageExpression(expression, strength, criticals, criticalBonus, randomDie = (sides) => Math.floor(Math.random() * sides) + 1) {
   const source = String(expression ?? "").trim();
   if (!source) throw new Error("Preencha o dano da arma.");

@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.52.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.53.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -140,6 +140,15 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 
 
 
+
+## Ajustes da versão 0.53.0
+
+- O quadrado de dano no CHAT abre um detalhamento com cada parcela do cálculo: dano base, Força e cada crítico, mostrando também o dano total ou a razão para ele não existir.
+- O arredondamento do quadrado de dano acompanha o controle de arredondamento da aparência personalizada: 0 deixa os cantos retos e o máximo transforma o quadrado em uma forma arredondada.
+- Popups de equipamentos compactados; traços de Dano, Críticos e valores defensivos reutilizam o mesmo estilo dos traços de poderes e rituais.
+- “Sem Armadura” continua pré-adicionada ao criar uma ficha, mas não tem destaque visual nem regras automáticas especiais: pode ser editada, equipada, desequipada ou removida como qualquer armadura.
+- Adicionada a aba Tutorial nas configurações, com exemplos de títulos, negrito, itálico, traços, tachado, links, imagens/GIFs, referências a perícias e rolagens inline.
+- Testes adicionais cobrem o detalhamento do dano, a formatação de equipamentos e o tutorial.
 
 ## Ajustes da versão 0.52.0
 

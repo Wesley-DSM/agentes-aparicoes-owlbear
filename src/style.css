@@ -2307,3 +2307,92 @@ button.initiative-detail-defense, button.initiative-detail-passive-skill { font-
   .roll-history-weapon-damage { flex-basis: 43px; width: 43px; height: 38px; }
   .roll-history-weapon-dice-row .roll-history-test-row { margin-left: 0; }
 }
+
+/* v0.53.0: compact equipment cards, damage breakdown and inline-format tutorial */
+.inventory-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inventory-toolbar h2 { margin-right: auto; }
+.inventory-toolbar .inventory-spaces-control { margin-left: auto; }
+.equipment-card-meta-stack { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 5px; }
+.equipment-card-traits { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: 100%; }
+.equipment-card-meta-stack > .equipment-card-meta { margin: 0; }
+.equipment-dialog {
+  width: min(360px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
+  max-height: min(84vh, 660px);
+  padding: 12px;
+  border-radius: 10px;
+}
+.equipment-dialog-heading { margin-bottom: 9px; padding-bottom: 7px; }
+.equipment-dialog-heading h2 { font-size: 13px; }
+.equipment-field { gap: 4px; margin-bottom: 7px; font-size: 9px; }
+.equipment-field input:not([type="checkbox"]),
+.equipment-field select,
+.equipment-field textarea { min-height: 32px; padding: 6px 8px; border-radius: 6px; font-size: 11px; }
+.equipment-field textarea { min-height: 64px; max-height: 140px; }
+.equipment-check-field { min-height: 32px; padding: 0 8px; }
+.equipment-dialog .confirm-dialog-actions { margin-top: 4px; }
+
+.settings-primary-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settings-tutorial-pane { display: grid; gap: 9px; }
+.settings-tutorial-pane[hidden], [data-settings-pane][hidden] { display: none !important; }
+.tutorial-panel { min-width: 0; }
+.tutorial-intro, .tutorial-note { margin: 0 0 9px; color: #aaa; font-size: 11px; line-height: 1.45; }
+.inline-tutorial-list { display: grid; gap: 9px; }
+.inline-tutorial-item { display: grid; grid-template-columns: minmax(105px, 38%) minmax(0, 1fr); align-items: start; gap: 10px; padding: 8px 0; border-top: 1px solid #303030; }
+.inline-tutorial-item:first-child { border-top: 0; }
+.inline-tutorial-item > code { display: block; min-width: 0; padding: 6px 7px; border: 1px solid #383838; border-radius: 6px; color: #e7e7e7; background: #101010; font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; white-space: normal; }
+.inline-tutorial-item > div { min-width: 0; color: #ddd; font-size: 11px; line-height: 1.4; }
+.inline-tutorial-item > div > strong { display: block; margin: 0 0 3px; color: #f3f3f3; }
+.inline-tutorial-item p { margin: 0; color: #aaa; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.inline-tutorial-item .ability-trait { margin: 0 0 4px; font-size: 10px; }
+.tutorial-example-block { max-width: 100%; margin: 0; padding: 10px; border: 1px solid #383838; border-radius: 7px; color: #e3e3e3; background: #101010; font-size: 10px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tutorial-note { margin: 8px 0 0; }
+
+.roll-history-weapon-damage {
+  appearance: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--aa-equipment-damage-radius, 25%);
+  transition: filter .12s ease, transform .12s ease;
+}
+.roll-history-weapon-damage:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.roll-history-weapon-damage:focus-visible { outline: 2px solid #b7eac6; outline-offset: 2px; }
+.roll-history-weapon-damage.is-failure { cursor: pointer; }
+.weapon-damage-dialog { width: min(340px, calc(100% - 24px)); padding: 13px; }
+.weapon-damage-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; margin-bottom: 10px; }
+.weapon-damage-dialog-heading h2 { margin: 0; font-size: 14px; }
+.weapon-damage-dialog-heading p { margin: 4px 0 0; color: #a9a9a9; font-size: 10px; }
+.weapon-damage-dialog-status { margin: 0 0 10px; padding: 9px; border: 1px solid #484848; border-radius: 7px; color: #c9c9c9; background: #141414; font-size: 11px; line-height: 1.45; }
+.weapon-damage-calculation { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-height: 24px; }
+.weapon-damage-part { display: inline-flex; align-items: center; min-height: 25px; padding: 5px 7px; border: 1px solid #464646; border-radius: 5px; color: #e5e5e5; background: #242424; font-size: 10px; font-weight: 750; line-height: 1.2; }
+.weapon-damage-part.is-strength { border-color: #617aa5; color: #d3e4ff; background: #1d2b40; }
+.weapon-damage-part.is-critical { border-color: #8b6840; color: #ffe0b0; background: #3b2b19; }
+.weapon-damage-operator { color: #929292; font-size: 12px; font-weight: 800; }
+.weapon-damage-dialog-total { margin-top: 12px; padding: 10px; border: 1px solid #40865d; border-radius: 7px; color: #d5ffe2; background: #17482d; font-size: 13px; font-weight: 900; text-align: center; }
+.weapon-damage-dialog .confirm-dialog-actions { margin-top: 10px; }
+:root[data-aa-theme="owlbear"] .inline-tutorial-item { border-color: rgba(166,179,234,.25); }
+:root[data-aa-theme="owlbear"] .inline-tutorial-item > code,
+:root[data-aa-theme="owlbear"] .tutorial-example-block { border-color: rgba(166,179,234,.32); color: var(--aa-owl-text,#eef0ff); background: rgba(25,31,54,.58); }
+:root[data-aa-theme="owlbear"] .inline-tutorial-item > div > strong { color: var(--aa-owl-text,#eef0ff); }
+:root[data-aa-theme="owlbear"] .inline-tutorial-item p,
+:root[data-aa-theme="owlbear"] .tutorial-intro,
+:root[data-aa-theme="owlbear"] .tutorial-note { color: var(--aa-owl-muted,#b5bac6); }
+:root[data-aa-theme="owlbear"] .weapon-damage-dialog-status { color: var(--aa-owl-text,#eef0ff); background: rgba(25,31,54,.58); border-color: rgba(166,179,234,.32); }
+:root[data-aa-theme="custom"] .inline-tutorial-item { border-color: var(--aa-custom-border,#303030); }
+:root[data-aa-theme="custom"] .inline-tutorial-item > code,
+:root[data-aa-theme="custom"] .tutorial-example-block { border-color: var(--aa-custom-border,#383838); color: var(--aa-custom-text,#e7e7e7); background: var(--aa-custom-field,#101010); border-radius: var(--aa-custom-radius,6px); }
+:root[data-aa-theme="custom"] .inline-tutorial-item > div > strong { color: var(--aa-custom-text,#f3f3f3); }
+:root[data-aa-theme="custom"] .inline-tutorial-item p,
+:root[data-aa-theme="custom"] .tutorial-intro,
+:root[data-aa-theme="custom"] .tutorial-note { color: var(--aa-custom-muted,#aaa); }
+:root[data-aa-theme="custom"] .weapon-damage-dialog-status { color: var(--aa-custom-text,#e7e7e7); background: var(--aa-custom-field,#101010); border-color: var(--aa-custom-border,#383838); border-radius: var(--aa-custom-radius,7px); }
+@media (max-width: 320px) {
+  .inline-tutorial-item { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .equipment-dialog { width: calc(100% - 16px); max-width: calc(100% - 16px); padding: 10px; }
+}

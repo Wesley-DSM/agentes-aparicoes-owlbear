@@ -551,20 +551,34 @@ function renderInventory(items) {
         meta.textContent = item.skill === "armas-de-fogo" ? "Armas de Fogo" : "Armas Simples";
         const traits = document.createElement("span");
         traits.className = "equipment-card-traits";
-        for (const traitText of [`[Dano ${item.damage || "—"}]`, `[Críticos ${item.critical || "—"}]`]) {
+        for (const traitText of [`Dano ${item.damage || "—"}`, `Críticos ${item.critical || "—"}`]) {
           const trait = document.createElement("span");
           trait.className = "ability-trait";
-          renderInlineMarkdown(trait, traitText);
+          trait.textContent = traitText;
           traits.append(trait);
         }
-        main.append(title, meta, traits);
+        const metaAndTraits = document.createElement("span");
+        metaAndTraits.className = "equipment-card-meta-stack";
+        metaAndTraits.append(meta, traits);
+        main.append(title, metaAndTraits);
       } else if (category === "armor") {
-        if (item.armorKind === "escudo") {
-          meta.textContent = `Escudo · ${signedLabel(item.evasionBonus, "EVA")} · ${signedLabel(item.protectionBonus, "PRO")} · Defesa ativa ${signedLabel(item.activeEvasion, "EVA")} · ${signedLabel(item.activeProtection, "PRO")}${item.equipped ? " · Em uso" : ""}`;
-        } else {
-          meta.textContent = `${item.defaultEquipmentKey === "no-armor" ? "Padrão · " : "Armadura · "}Base EVA ${item.evasionBase} · Base PRO ${item.protectionBase} · Defesa ativa ${signedLabel(item.activeEvasion, "EVA")} · ${signedLabel(item.activeProtection, "PRO")}${item.equipped ? " · Em uso" : ""}`;
+        const traits = document.createElement("span");
+        traits.className = "equipment-card-traits";
+        const signed = (value) => `${Number(value) > 0 ? "+" : ""}${Number(value) || 0}`;
+        const values = item.armorKind === "escudo"
+          ? [`Evasão ${signed(item.evasionBonus)}`, `Proteção ${signed(item.protectionBonus)}`, `Defesa ativa: EVA ${signed(item.activeEvasion)}`, `Defesa ativa: PRO ${signed(item.activeProtection)}`]
+          : [`Evasão ${item.evasionBase} + Agilidade`, `Proteção ${item.protectionBase} + Fortitude`, `Defesa ativa: EVA ${signed(item.activeEvasion)}`, `Defesa ativa: PRO ${signed(item.activeProtection)}`];
+        for (const traitText of values) {
+          const trait = document.createElement("span");
+          trait.className = "ability-trait";
+          trait.textContent = traitText;
+          traits.append(trait);
         }
-        main.append(title, meta);
+        const metaAndTraits = document.createElement("span");
+        metaAndTraits.className = "equipment-card-meta-stack";
+        meta.textContent = item.armorKind === "escudo" ? "Escudo" : "Armadura";
+        metaAndTraits.append(meta, traits);
+        main.append(title, metaAndTraits);
       } else {
         meta.textContent = item.usesEnabled ? `Usos restantes: ${item.uses}` : "";
         main.append(title, meta);
@@ -584,17 +598,10 @@ function renderInventory(items) {
           actions.append(reaction);
         }
       } else if (category === "armor") {
-        if (item.defaultEquipmentKey === "no-armor") {
-          const badge = document.createElement("span");
-          badge.className = "equipment-state-badge";
-          badge.textContent = "Padrão";
-          actions.append(badge);
-        } else {
-          const equip = makeSmallButton(item.equipped ? "Em uso" : "Equipar", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`, "equipmentAction");
-          equip.dataset.equipmentAction = "toggle-equipped";
-          equip.setAttribute("aria-pressed", String(Boolean(item.equipped)));
-          actions.append(equip);
-        }
+        const equip = makeSmallButton(item.equipped ? "Em uso" : "Equipar", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`, "equipmentAction");
+        equip.dataset.equipmentAction = "toggle-equipped";
+        equip.setAttribute("aria-pressed", String(Boolean(item.equipped)));
+        actions.append(equip);
       } else if (item.usesEnabled && String(item.uses ?? "").trim() !== "") {
         const decrement = makeSmallButton("−", "equipment-uses-step", "equipmentAction");
         decrement.dataset.equipmentAction = "uses-down";
@@ -839,10 +846,6 @@ function saveEquipmentEditor() {
       if (entry.id !== item.id && entry.category === "armor" && entry.armorKind !== "escudo") entry.equipped = false;
     }
   }
-  if (editingEquipmentCategory === "armor") {
-    const hasBodyArmor = entries.some((entry) => entry.category === "armor" && entry.armorKind !== "escudo" && entry.equipped && entry.defaultEquipmentKey !== "no-armor");
-    for (const entry of entries) if (entry.defaultEquipmentKey === "no-armor") entry.equipped = !hasBodyArmor;
-  }
   renderInventory(entries);
   editingEquipmentIsNew = false;
   equipmentDialog.close();
@@ -864,7 +867,7 @@ function cancelEquipmentEditor() {
 
 function toggleEquipmentEquipped(card) {
   const target = card?._equipmentData;
-  if (!target || target.category !== "armor" || isRestricted() || target.defaultEquipmentKey === "no-armor") return;
+  if (!target || target.category !== "armor" || isRestricted()) return;
   const entries = readInventoryFromForm();
   const item = entries.find((entry) => entry.id === target.id);
   if (!item) return;
@@ -873,10 +876,6 @@ function toggleEquipmentEquipped(card) {
     for (const entry of entries) {
       if (entry.id !== item.id && entry.category === "armor" && entry.armorKind !== "escudo") entry.equipped = false;
     }
-  }
-  const hasBodyArmor = entries.some((entry) => entry.category === "armor" && entry.armorKind !== "escudo" && entry.equipped && entry.defaultEquipmentKey !== "no-armor");
-  for (const entry of entries) {
-    if (entry.defaultEquipmentKey === "no-armor") entry.equipped = !hasBodyArmor;
   }
   renderInventory(entries);
   scheduleAutoSave();

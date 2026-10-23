@@ -4,6 +4,7 @@ import {
   calculateDefenses,
   createDefaultEquipment,
   evaluateSkillTest,
+  getDamageCalculationParts,
   initializeEquipment,
   normalizeEquipment,
   rollDamageExpression,
@@ -95,4 +96,22 @@ test("new and legacy supply counters normalize to an explicit enabled state", ()
   assert.equal(noCounter.uses, "");
   assert.equal(withCounter.usesEnabled, true);
   assert.equal(withCounter.uses, "2");
+});
+
+
+test("damage breakdown lists base damage, Strength and one entry for each critical", () => {
+  assert.deepEqual(getDamageCalculationParts("2+Força", 3, 2, 2), [
+    { label: "Dano Base", value: 2, sign: 1 },
+    { label: "Força", value: 3, sign: 1 },
+    { label: "Crítico", value: 2, sign: 1 },
+    { label: "Crítico", value: 2, sign: 1 },
+  ]);
+});
+
+test("damage breakdown shows rolled dice individually and retains subtraction signs", () => {
+  assert.deepEqual(getDamageCalculationParts("1d6-2+Força", 4, 0, 2, [5]), [
+    { label: "Dano Base", value: 5, sign: 1, die: "5/6" },
+    { label: "Dano Base", value: 2, sign: -1 },
+    { label: "Força", value: 4, sign: 1 },
+  ]);
 });

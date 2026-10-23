@@ -86,6 +86,11 @@
       </section>
 
       <section id="settings-view" class="main-tab-panel" hidden>
+        <nav class="settings-subtabs settings-primary-tabs" aria-label="Configurações da extensão">
+          <button id="settings-config-tab" class="settings-subtab active" type="button" data-settings-tab="settings-config-pane" aria-controls="settings-config-pane" aria-selected="true">Configurações</button>
+          <button id="settings-tutorial-tab" class="settings-subtab" type="button" data-settings-tab="settings-tutorial-pane" aria-controls="settings-tutorial-pane" aria-selected="false">Tutorial</button>
+        </nav>
+        <div id="settings-config-pane" data-settings-pane>
         <section id="token-appearance-panel" class="panel settings-panel">
           <div class="panel-heading">
             <h2>Aparência dos Tokens</h2>
@@ -291,8 +296,46 @@
           </div>
         </section>
         <p id="settings-notice" class="notice" role="status" aria-live="polite">Carregando configurações…</p>
-        
+        </div>
+        <div id="settings-tutorial-pane" class="settings-tutorial-pane" data-settings-pane hidden>
+          <section class="panel tutorial-panel">
+            <div class="panel-heading"><h2>Formatação de texto</h2></div>
+            <p class="tutorial-intro">Use estes códigos nas descrições, poderes, rituais e mensagens do CHAT. A formatação aparece automaticamente depois de salvar ou enviar.</p>
+            <div class="inline-tutorial-list">
+              <article class="inline-tutorial-item"><code># Título</code><div><strong>Títulos</strong><p>Coloque #, ## ou ### no início de uma linha para criar títulos em três níveis.</p></div></article>
+              <article class="inline-tutorial-item"><code>**negrito**</code><div><strong><b>negrito</b></strong><p>Dois asteriscos antes e depois do texto deixam o texto em negrito.</p></div></article>
+              <article class="inline-tutorial-item"><code>*itálico*</code><div><strong><i>itálico</i></strong><p>Um asterisco antes e depois do texto deixa o texto em itálico.</p></div></article>
+              <article class="inline-tutorial-item"><code>[Dano 1d6]</code><div><span class="ability-trait">Dano 1d6</span><p>Colchetes simples criam um traço destacado, igual aos usados em poderes e rituais.</p></div></article>
+              <article class="inline-tutorial-item"><code>~~texto~~</code><div><strong><del>texto</del></strong><p>Dois tils antes e depois deixam o texto tachado. Use crases para <code>código</code>.</p></div></article>
+            </div>
+          </section>
+          <section class="panel tutorial-panel">
+            <div class="panel-heading"><h2>Ferramentas inline</h2></div>
+            <div class="inline-tutorial-list">
+              <article class="inline-tutorial-item"><code>[[https://.../imagem.gif]]</code><div><strong>Imagem ou GIF</strong><p>Insira um link direto para uma imagem ou GIF hospedado em um endereço HTTPS ou HTTP.</p></div></article>
+              <article class="inline-tutorial-item"><code>[[1d10]]</code><div><strong>Rolagem de dados</strong><p>Rola dados d10 no CHAT. Use de [[1d10]] a [[5d10]]. A DT pode ser preenchida no registro depois da rolagem.</p></div></article>
+              <article class="inline-tutorial-item"><code>[[@Percepção]]</code><div><strong>Teste de perícia</strong><p>O @ antes do nome pede uma rolagem usando a quantidade de dados da perícia do token selecionado. Exemplo: [[@Furtividade]].</p></div></article>
+              <article class="inline-tutorial-item"><code>[[Percepção]]</code><div><strong>Referência de perícia</strong><p>Em descrições da ficha, mostra o valor atual da perícia. Use [[Percepção Passiva]] para mostrar o valor passivo. Sem @, isso não faz uma rolagem.</p></div></article>
+              <article class="inline-tutorial-item"><code>[Texto](https://...)</code><div><strong>Link</strong><p>Transforma o texto entre colchetes em um link clicável para um endereço HTTP ou HTTPS.</p></div></article>
+            </div>
+          </section>
+          <section class="panel tutorial-panel">
+            <div class="panel-heading"><h2>Exemplo completo</h2></div>
+            <pre class="tutorial-example-block"><code># Busca na escuridão
+A equipe avança em silêncio. *Algo se move* no corredor.
+[Condição: Escuro] [[@Percepção]]
+[[https://exemplo.com/imagem.gif]]</code></pre>
+            <p class="tutorial-note">As rolagens inline são limitadas a 10 por mensagem. Os links de imagem devem apontar diretamente para o arquivo de imagem ou GIF.</p>
+          </section>
+        </div>
       </section>
+      <dialog id="weapon-damage-dialog" class="confirm-dialog weapon-damage-dialog" aria-labelledby="weapon-damage-dialog-title">
+        <div class="weapon-damage-dialog-heading"><div><h2 id="weapon-damage-dialog-title">Cálculo de dano</h2><p id="weapon-damage-dialog-subtitle"></p></div><button id="weapon-damage-dialog-close" type="button" class="remove-entry-button remove-icon-button" aria-label="Fechar">×</button></div>
+        <p id="weapon-damage-dialog-status" class="weapon-damage-dialog-status" hidden></p>
+        <div id="weapon-damage-calculation" class="weapon-damage-calculation"></div>
+        <div id="weapon-damage-dialog-total" class="weapon-damage-dialog-total" hidden></div>
+        <div class="confirm-dialog-actions"><button id="weapon-damage-dialog-ok" type="button" class="confirm-secondary">Fechar</button></div>
+      </dialog>
       <dialog id="reroll-die-dialog" class="confirm-dialog" aria-labelledby="reroll-die-title" aria-describedby="reroll-die-description">
         <h2 id="reroll-die-title">Alterar resultado do dado</h2>
         <p id="reroll-die-description">O resultado anterior ficará tachado.</p>

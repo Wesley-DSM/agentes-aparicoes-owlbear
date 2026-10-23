@@ -1,6 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import "./style.css";
 import { activeDieValue, calculateTestResult } from "./diceRules.js";
+import { getDamageCalculationParts } from "./equipment.js";
 import { renderFormattedMarkdown, renderInlineMarkdown } from "./markdown.js";
 import { createThemeController, THEME_STORAGE_KEY, THEME_CUSTOMIZATION_KEY } from "./theme.js";
 import {
@@ -45,6 +46,7 @@ const clearLogDialog = byId("clear-log-dialog");
 const confirmClearLogButton = byId("confirm-clear-log");
 const cancelClearLogButton = byId("cancel-clear-log");
 const rerollDieDialog = byId("reroll-die-dialog");
+const weaponDamageDialog = byId("weapon-damage-dialog");
 const rerollDieDescription = byId("reroll-die-description");
 const confirmRerollDieButton = byId("confirm-reroll-die");
 const chooseRerollValueButton = byId("choose-reroll-value");
@@ -728,6 +730,19 @@ confirmResetTokenAppearanceButton?.addEventListener("click", () => {
     confirmResetTokenAppearanceButton.disabled = false;
   });
 });
+byId("settings-view")?.addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-settings-tab]");
+  if (!tab) return;
+  const targetId = tab.dataset.settingsTab;
+  const settingsView = byId("settings-view");
+  settingsView?.querySelectorAll("[data-settings-tab]").forEach((button) => {
+    const selected = button === tab;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
+  settingsView?.querySelectorAll("[data-settings-pane]").forEach((pane) => { pane.hidden = pane.id !== targetId; });
+});
+
 byId("interface-theme")?.addEventListener("change", (event) => {
   applyLocalTheme(event.target.value);
 });
@@ -1119,6 +1134,46 @@ function makeLogReactionButton(entry, emoji, users, isPickerOption = false) {
   return button;
 }
 
+function openWeaponDamageCalculation(entry) {
+  if (!weaponDamageDialog || !entry) return;
+  const subtitle = byId("weapon-damage-dialog-subtitle");
+  const status = byId("weapon-damage-dialog-status");
+  const calculation = byId("weapon-damage-calculation");
+  const total = byId("weapon-damage-dialog-total");
+  if (subtitle) subtitle.textContent = `${entry.weaponName || "Arma"} · ${entry.skillName || "Perícia"}`;
+  if (calculation) calculation.replaceChildren();
+  if (total) { total.hidden = true; total.textContent = ""; }
+  if (status) { status.hidden = true; status.textContent = ""; }
+
+  const result = calculateTestResult(entry, entry.dt);
+  if (entry.dt === null || entry.dt === undefined || entry.dt === "" || !result) {
+    if (status) { status.hidden = false; status.textContent = "Preencha a DT deste ataque no CHAT para calcular o dano."; }
+  } else if (!result.success) {
+    if (status) { status.hidden = false; status.textContent = `Falha no teste (${result.total} contra DT ${result.dt}). Nenhum dano é causado.`; }
+  } else {
+    const parts = getDamageCalculationParts(entry.damageExpression, entry.strength, result.criticals, entry.criticalBonus, entry.damageRolls);
+    if (!parts.length) {
+      if (status) { status.hidden = false; status.textContent = "Não foi possível detalhar o cálculo. Confira o traço Dano da arma."; }
+    } else {
+      parts.forEach((part, index) => {
+        if (index > 0 || part.sign < 0) {
+          const operator = document.createElement("span");
+          operator.className = "weapon-damage-operator";
+          operator.textContent = part.sign < 0 ? "−" : "+";
+          calculation.append(operator);
+        }
+        const chip = document.createElement("span");
+        chip.className = `weapon-damage-part${part.label === "Crítico" ? " is-critical" : part.label === "Força" ? " is-strength" : ""}`;
+        chip.textContent = `${part.label} ${part.value}`;
+        if (part.die) chip.title = `Resultado do dado de dano: ${part.die}`;
+        calculation.append(chip);
+      });
+      if (total) { total.hidden = false; total.textContent = `Dano total: ${entry.damageTotal ?? "—"}`; }
+    }
+  }
+  if (typeof weaponDamageDialog.showModal === "function") weaponDamageDialog.showModal();
+}
+
 function updateTestResultForCard(card, rawDt = null) {
   const entry = card?.rollHistoryEntry;
   const output = card?.querySelector("[data-roll-result]");
@@ -1248,12 +1303,14 @@ function makeRollHistoryEntry(entry) {
     const diceRow = document.createElement("div");
     diceRow.className = `roll-history-dice-row${entry.type === "weapon-attack" ? " roll-history-weapon-dice-row" : ""}`;
     if (entry.type === "weapon-attack") {
-      const damageTile = document.createElement("div");
+      const damageTile = document.createElement("button");
+      damageTile.type = "button";
       damageTile.className = "roll-history-weapon-damage";
       damageTile.dataset.weaponDamage = entry.id;
       damageTile.textContent = entry.dt === null || entry.dt === undefined ? "–" : (entry.damageTotal === null || entry.damageTotal === undefined ? "−" : String(entry.damageTotal));
       if (entry.damageTotal !== null && entry.damageTotal !== undefined) damageTile.classList.add("is-success");
-      damageTile.title = "Dano do ataque. Defina a DT para calcular o resultado.";
+      damageTile.title = "Clique para ver o cálculo do dano.";
+      damageTile.setAttribute("aria-label", "Abrir cálculo de dano do ataque");
       diceRow.append(damageTile);
     }
     const dice = document.createElement("div");
@@ -1761,6 +1818,13 @@ rollHistoryList.addEventListener("click", async (event) => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
 
+  const weaponDamageButton = target.closest("[data-weapon-damage]");
+  if (weaponDamageButton) {
+    const card = weaponDamageButton.closest(".roll-history-entry");
+    if (card?.rollHistoryEntry?.type === "weapon-attack") openWeaponDamageCalculation(card.rollHistoryEntry);
+    return;
+  }
+
   const inlineDieButton = target.closest("[data-inline-roll-entry][data-inline-roll-index][data-inline-die-index]");
   if (inlineDieButton) {
     const entryId = inlineDieButton.dataset.inlineRollEntry;
@@ -2067,6 +2131,10 @@ rerollDieValueInput.addEventListener("keydown", (event) => {
     chooseRerollValueButton.click();
   }
 });
+
+byId("weapon-damage-dialog-close")?.addEventListener("click", () => weaponDamageDialog?.close());
+byId("weapon-damage-dialog-ok")?.addEventListener("click", () => weaponDamageDialog?.close());
+weaponDamageDialog?.addEventListener("click", (event) => { if (event.target === weaponDamageDialog) weaponDamageDialog.close(); });
 
 clearLogButton.addEventListener("click", () => {
   if (currentRole !== "GM") return;

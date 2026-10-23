@@ -1,6 +1,6 @@
 {
   "name": "Ficha Agentes & Aparições",
-  "version": "0.52.0",
+  "version": "0.53.0",
   "manifest_version": 1,
   "background_url": "/background.html",
   "action": {
