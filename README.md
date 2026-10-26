@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.53.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.54.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -203,3 +203,10 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 - Na ficha independente, **Salvar** baixa um novo arquivo HTML com as alterações embutidas. O navegador não sobrescreve silenciosamente o original. Importe o HTML atualizado em **Opções da ficha → Importar ficha** para aplicar os dados ao token.
 - O arquivo HTML salvo é lido como texto durante a importação; a extensão extrai e valida os dados embutidos sem executar o JavaScript do arquivo importado. Arquivos JSON exportados por versões anteriores continuam aceitos.
 - A versão independente não executa operações que dependem da sala do Owlbear, como rolar perícias, usar poderes/rituais no CHAT ou adicionar o personagem à iniciativa. Essas ações continuam disponíveis dentro da extensão.
+
+
+## Ajustes da versão 0.54.0
+
+- A ordem do CHAT agora segue a ordem armazenada dos eventos, em vez de ordenar por timestamps locais que podem divergir entre participantes.
+- Escritas do histórico fazem uma releitura e mesclagem antes de gravar para preservar mensagens recentes adicionadas por outros participantes.
+- Um mecanismo temporário de reconciliação restaura mensagens recém-enviadas caso uma atualização concorrente de metadados as sobrescreva.
