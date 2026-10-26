@@ -120,7 +120,7 @@ function nonNegativeInteger(value, fallback = 0) {
 
 function createEntryId(prefix = "entry") {
   const uuid = globalThis.crypto?.randomUUID?.();
-  return `${prefix}-${uuid ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+  return `${prefix}-${uuid ?? `${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`}`;
 }
 
 function normalizeInventory(items) {
@@ -937,7 +937,6 @@ async function openWeaponAttack(item) {
       characterName: sheet.characterName,
       playerName,
       tokenId: activeTokenId,
-      rolledAt: Date.now(),
       weaponName: weapon.name || "Arma sem nome",
       skillName: skill?.name ?? "Armas Simples",
       skillId,
@@ -1966,7 +1965,7 @@ async function rollSkill(skillId) {
 
   const roll = {
     type: "skill-roll",
-    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: globalThis.crypto?.randomUUID?.() ?? `${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
     playerName,
     characterName,
     skillId: skill.id,
@@ -1974,20 +1973,16 @@ async function rollSkill(skillId) {
     tokenId: activeTokenId,
     dice,
     count,
-    rolledAt: Date.now(),
-  };
+      };
 
   try {
-    try {
-      await appendRollHistory(roll);
-    } catch (historyError) {
-      // The roll remains valid and public even if the history cannot be saved.
-      console.warn("A&A: não foi possível salvar a rolagem no histórico.", historyError);
-    }
+    await appendRollHistory(roll);
     setNotice(`Rolagem de ${skill.name} enviada para a mesa.`, "success");
   } catch (error) {
     console.error("A&A: não foi possível divulgar a rolagem.", error);
-    setNotice("A rolagem foi feita, mas não foi possível exibi-la para todos. Confira a conexão da extensão.", "error");
+    setNotice(error?.message?.includes("horário de referência")
+      ? "A rolagem não foi registrada porque não foi possível consultar o horário de Brasília. Verifique a conexão e tente novamente."
+      : "A rolagem foi feita, mas não foi possível exibi-la para todos. Confira a conexão da extensão.", "error");
   }
 }
 
@@ -2038,19 +2033,15 @@ async function useAbility(card) {
       playerName,
       characterName: sheet.characterName,
       tokenId: activeTokenId,
-      usedAt: Date.now(),
-    };
+          };
 
-    try {
-      await appendRollHistory(payload);
-    } catch (historyError) {
-      // The shared power/ritual was already sent; log failure should not undo its use.
-      console.warn("A&A: não foi possível registrar o poder ou ritual no LOG.", historyError);
-    }
+    await appendRollHistory(payload);
     setNotice(`${kind === "power" ? "Poder" : "Ritual"} compartilhado com a mesa.`, "success");
   } catch (error) {
     console.error("A&A: não foi possível compartilhar a habilidade.", error);
-    setNotice("Não foi possível exibir a habilidade para todos. Confira a conexão da extensão.", "error");
+    setNotice(error?.message?.includes("horário de referência")
+      ? "Não foi possível registrar o poder ou ritual porque o horário de Brasília está indisponível. Verifique a conexão e tente novamente."
+      : "Não foi possível exibir a habilidade para todos. Confira a conexão da extensão.", "error");
   }
 }
 

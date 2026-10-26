@@ -1,6 +1,8 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { calculateTestResult, activeDieValue } from "./diceRules.js";
 import { rollDamageExpression } from "./equipment.js";
+import { mergeHistoryInPersistedOrder, mergeRecoveredHistory, orderHistoryByAuthoritativeTimestamp } from "./chatOrder.js";
+import { getBrasiliaTimestamp } from "./brasiliaTime.js";
 
 export const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 export const ROLL_HISTORY_KEY = `${EXTENSION_ID}/roll-history`;
@@ -11,7 +13,46 @@ export const MAX_REACTORS_PER_EMOJI = 6;
 export const MAX_DIE_RESULTS = 6; // Initial result plus at most five rerolls.
 
 const REACTION_EMOJIS = new Set(["👍", "❤️", "😂", "😮", "😢", "🎉", "🔥", "👀", "💀", "🤔", "👏", "✅"]);
+const PENDING_RECOVERY_WINDOW_MS = 5000;
 let historyWriteQueue = Promise.resolve();
+let metadataListenerUnsubscribe = null;
+const pendingLocalEntries = new Map();
+let lastObservedHistory = [];
+
+function enqueueHistoryOperation(operation) {
+  historyWriteQueue = historyWriteQueue.then(operation, operation);
+  return historyWriteQueue;
+}
+
+function monotonicNow() {
+  return globalThis.performance?.now?.() ?? 0;
+}
+
+function rememberPendingEntry(entry) {
+  const rememberedAt = monotonicNow();
+  pendingLocalEntries.set(entry.id, { entry, rememberedAt });
+  setTimeout(() => {
+    const current = pendingLocalEntries.get(entry.id);
+    if (current?.rememberedAt === rememberedAt) pendingLocalEntries.delete(entry.id);
+  }, PENDING_RECOVERY_WINDOW_MS + 100);
+  ensureHistoryMetadataListener();
+}
+
+function ensureHistoryMetadataListener() {
+  if (metadataListenerUnsubscribe) return;
+  try {
+    metadataListenerUnsubscribe = OBR.room.onMetadataChange((metadata) => {
+      void reconcilePendingRollHistory(metadata).catch((error) => {
+        console.debug("A&A: não foi possível reconciliar mensagens recentes do CHAT.", error);
+      });
+    });
+  } catch (error) {
+    // appendRollHistory still uses read-after-write verification if the SDK
+    // cannot register the room listener in the current context.
+    console.debug("A&A: não foi possível acompanhar mudanças do CHAT.", error);
+  }
+}
+
 
 function normalizeReactions(value) {
   const seenEmojis = new Set();
@@ -123,7 +164,7 @@ function entryFromCompact(value) {
     return {
       id: value[1], type: "skill-roll", rolledAt: value[2], characterName: value[3],
       playerName: value[4], skillName: value[5], skillId: value[6], dice: value[7], reactions: value[8], dt: value[9] ?? null,
-      tokenId: value[10] ?? "",
+      tokenId: value[10] ?? "", timestampSource: value[11] ?? "legacy",
     };
   }
   if (value[0] === "a") {
@@ -131,20 +172,21 @@ function entryFromCompact(value) {
       id: value[1], type: "ability-use", usedAt: value[2], characterName: value[3],
       playerName: value[4], abilityName: value[5], kind: value[6], reactions: value[7],
       traits: value[8] ?? "", description: value[9] ?? "", tokenId: value[10] ?? "",
-      inlineRolls: expandInlineRolls(value[11]),
+      inlineRolls: expandInlineRolls(value[11]), timestampSource: value[12] ?? "legacy",
     };
   }
   if (value[0] === "m") {
     return {
       id: value[1], type: "manual-roll", rolledAt: value[2], characterName: value[3],
       playerName: value[4], dice: value[5], dt: value[6] ?? null, reactions: value[7], tokenId: value[8] ?? "",
+      timestampSource: value[9] ?? "legacy",
     };
   }
   if (value[0] === "c") {
     return {
       id: value[1], type: "chat-message", rolledAt: value[2], characterName: value[3],
       playerName: value[4], message: value[5], tokenId: value[6] ?? "",
-      inlineRolls: expandInlineRolls(value[7]), reactions: value[8],
+      inlineRolls: expandInlineRolls(value[7]), reactions: value[8], timestampSource: value[9] ?? "legacy",
     };
   }
   if (value[0] === "w") {
@@ -153,6 +195,7 @@ function entryFromCompact(value) {
       weaponName: value[5], skillName: value[6], skillId: value[7], rank: value[8], dice: value[9], dt: value[10],
       damageExpression: value[11], criticalBonus: value[12], strength: value[13], description: value[14],
       damageRolls: value[15], damageTotal: value[16], tokenId: value[17] ?? "", reactions: value[18],
+      timestampSource: value[19] ?? "legacy",
     };
   }
   return null;
@@ -164,12 +207,15 @@ function normalizeEntry(rawValue) {
 
   const timestampCandidate = value.type === "ability-use" ? (value.usedAt ?? value.rolledAt) : (value.rolledAt ?? value.usedAt);
   const timestamp = Number(timestampCandidate);
-  const eventTime = Number.isFinite(timestamp) && Number.isFinite(new Date(timestamp).getTime()) ? timestamp : Date.now();
+  // Missing/invalid legacy timestamps stay unknown instead of being replaced
+  // with this device's wall clock. New entries are stamped in appendRollHistory.
+  const eventTime = Number.isFinite(timestamp) && Number.isFinite(new Date(timestamp).getTime()) ? timestamp : 0;
   const common = {
     id: value.id.slice(0, 100),
     characterName: String(value.characterName ?? (value.type === "chat-message" ? "" : "Personagem")).slice(0, 70),
     playerName: String(value.playerName ?? "Jogador").slice(0, 70),
     rolledAt: eventTime,
+    timestampSource: value.timestampSource === "brasilia" ? "brasilia" : "legacy",
     reactions: normalizeReactions(value.reactions),
     tokenId: String(value.tokenId ?? "").slice(0, 100),
   };
@@ -262,15 +308,16 @@ function normalizeEntry(rawValue) {
 
 export function normalizeRollHistory(value) {
   const seen = new Set();
-  return (Array.isArray(value) ? value : [])
+  const normalized = (Array.isArray(value) ? value : [])
     .map(normalizeEntry)
     .filter((entry) => {
       if (!entry || seen.has(entry.id)) return false;
       seen.add(entry.id);
       return true;
-    })
-    .sort((a, b) => a.rolledAt - b.rolledAt)
-    .slice(-MAX_ROLL_HISTORY);
+    });
+  // Old entries without a synchronized timestamp keep their stored order.
+  // New events are ordered by the shared timestamp instead of participant clocks.
+  return orderHistoryByAuthoritativeTimestamp(normalized, MAX_ROLL_HISTORY);
 }
 
 function compactReactions(reactions = []) {
@@ -285,20 +332,20 @@ function compactLog(history) {
   const compact = normalizeRollHistory(history).map((entry) => {
     const reactions = compactReactions(entry.reactions);
     if (entry.type === "skill-roll") {
-      return ["s", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.skillName, entry.skillId, compactDice(entry.dice), reactions, entry.dt, entry.tokenId];
+      return ["s", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.skillName, entry.skillId, compactDice(entry.dice), reactions, entry.dt, entry.tokenId, entry.timestampSource];
     }
     if (entry.type === "manual-roll") {
-      return ["m", entry.id, entry.rolledAt, entry.characterName, entry.playerName, compactDice(entry.dice), entry.dt, reactions, entry.tokenId];
+      return ["m", entry.id, entry.rolledAt, entry.characterName, entry.playerName, compactDice(entry.dice), entry.dt, reactions, entry.tokenId, entry.timestampSource];
     }
     if (entry.type === "chat-message") {
-      return ["c", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.message, entry.tokenId, compactInlineRolls(entry.inlineRolls), reactions];
+      return ["c", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.message, entry.tokenId, compactInlineRolls(entry.inlineRolls), reactions, entry.timestampSource];
     }
     if (entry.type === "weapon-attack") {
       return ["w", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.weaponName, entry.skillName, entry.skillId,
         entry.rank, compactDice(entry.dice), entry.dt, entry.damageExpression, entry.criticalBonus, entry.strength, entry.description,
-        entry.damageRolls, entry.damageTotal, entry.tokenId, reactions];
+        entry.damageRolls, entry.damageTotal, entry.tokenId, reactions, entry.timestampSource];
     }
-    return ["a", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.abilityName, entry.kind, reactions, entry.traits.join(", "), entry.description, entry.tokenId, compactInlineRolls(entry.inlineRolls)];
+    return ["a", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.abilityName, entry.kind, reactions, entry.traits.join(", "), entry.description, entry.tokenId, compactInlineRolls(entry.inlineRolls), entry.timestampSource];
   });
 
   // Room metadata is limited to 16 kB. Keep a safety margin by shortening
@@ -334,9 +381,15 @@ async function getStoredHistory() {
 }
 
 async function saveHistory(history) {
-  const updated = normalizeRollHistory(history);
-  await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: compactLog(updated) });
-  return updated;
+  // Re-read just before writing and merge any events another participant has
+  // added since this operation took its snapshot. Metadata updates merge keys,
+  // not array contents, so writing a stale array could otherwise erase chat.
+  const proposed = normalizeRollHistory(history);
+  const current = await getStoredHistory();
+  const updated = normalizeRollHistory(mergeHistoryInPersistedOrder(proposed, current, MAX_ROLL_HISTORY));
+  const compact = compactLog(updated);
+  await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: compact });
+  return normalizeRollHistory(compact);
 }
 
 export async function readRollHistory() {
@@ -344,17 +397,90 @@ export async function readRollHistory() {
 }
 
 export function appendRollHistory(value) {
-  const operation = async () => {
-    const entry = normalizeEntry(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return getStoredHistory();
+
+  return enqueueHistoryOperation(async () => {
+    // Never trust rolledAt/usedAt supplied by the calling UI. Obtain the shared
+    // reference time immediately before accepting the event into the log.
+    const officialTimestamp = await getBrasiliaTimestamp();
+    const stampedValue = value.type === "ability-use"
+      ? { ...value, usedAt: officialTimestamp, rolledAt: officialTimestamp, timestampSource: "brasilia" }
+      : { ...value, rolledAt: officialTimestamp, usedAt: officialTimestamp, timestampSource: "brasilia" };
+    const entry = normalizeEntry(stampedValue);
     if (!entry) return getStoredHistory();
+    rememberPendingEntry(entry);
 
     const existing = await getStoredHistory();
+    if (!lastObservedHistory.length && existing.length) lastObservedHistory = existing;
     if (existing.some((item) => item.id === entry.id)) return existing;
-    return saveHistory([...existing, entry]);
-  };
+    const updated = await saveHistory([...existing, entry]);
+    // Verify that our event survived a concurrent room-metadata update. The
+    // metadata listener keeps a short outbox alive to repair a write that is
+    // overwritten immediately after this verification.
+    const confirmed = await getStoredHistory();
+    if (!confirmed.some((item) => item.id === entry.id)) {
+      await saveHistory([...confirmed, entry]);
+      const repaired = await getStoredHistory();
+      lastObservedHistory = repaired;
+      return repaired;
+    }
+    lastObservedHistory = confirmed;
+    return updated;
+  });
+}
 
-  historyWriteQueue = historyWriteQueue.then(operation, operation);
-  return historyWriteQueue;
+/**
+ * Best-effort recovery for simultaneous writes from different participants.
+ * The room API merges metadata keys, but concurrent read-modify-write calls on
+ * the same array can still overwrite one another. Retain recently-sent entries
+ * briefly and restore any that disappear from another participant's update.
+ */
+export function reconcilePendingRollHistory(metadata = null) {
+  const raw = metadata?.[ROLL_HISTORY_KEY];
+  if (Array.isArray(raw) && raw.length === 0) {
+    // An explicit empty array represents the GM clearing the CHAT. Do not
+    // resurrect recently-sent entries after that deliberate action.
+    pendingLocalEntries.clear();
+    lastObservedHistory = [];
+    return Promise.resolve([]);
+  }
+
+  const incoming = normalizeRollHistory(raw);
+  const storedIds = new Set(incoming.map((entry) => entry.id));
+  const hasMissingPending = [...pendingLocalEntries.values()].some(({ entry, rememberedAt }) =>
+    monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS && !storedIds.has(entry.id));
+  if (!hasMissingPending) {
+    lastObservedHistory = incoming;
+    return Promise.resolve(incoming);
+  }
+
+  // Snapshot this before queued recovery starts. If the latest metadata has
+  // replaced an earlier array, this is the last order known to have existed.
+  const previousSnapshot = [...lastObservedHistory];
+  return enqueueHistoryOperation(async () => {
+    const roomMetadata = await OBR.room.getMetadata();
+    const latestRaw = roomMetadata?.[ROLL_HISTORY_KEY];
+    if (Array.isArray(latestRaw) && latestRaw.length === 0) {
+      pendingLocalEntries.clear();
+      lastObservedHistory = [];
+      return [];
+    }
+    const latest = normalizeRollHistory(latestRaw);
+    const ids = new Set(latest.map((entry) => entry.id));
+    const pending = [...pendingLocalEntries.values()]
+      .filter(({ entry, rememberedAt }) => monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS && !ids.has(entry.id))
+      .map(({ entry }) => entry);
+    if (!pending.length) {
+      lastObservedHistory = latest;
+      return latest;
+    }
+    // Keep previously confirmed events ahead of events that only appeared in
+    // the competing write, then append any local pending event never persisted.
+    const recovered = mergeRecoveredHistory(previousSnapshot, latest, pending, MAX_ROLL_HISTORY);
+    const saved = await saveHistory(recovered);
+    lastObservedHistory = await getStoredHistory();
+    return saved;
+  });
 }
 
 function recalculateWeaponAttack(entry) {
@@ -419,8 +545,7 @@ export function updateRollHistoryEntry(entryId, patch) {
     return { ok: true, history: await saveHistory(history) };
   };
 
-  historyWriteQueue = historyWriteQueue.then(operation, operation);
-  return historyWriteQueue;
+  return enqueueHistoryOperation(operation);
 }
 
 export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null) {
@@ -444,8 +569,7 @@ export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null
     return { ok: true, history: await saveHistory(history) };
   };
 
-  historyWriteQueue = historyWriteQueue.then(operation, operation);
-  return historyWriteQueue;
+  return enqueueHistoryOperation(operation);
 }
 
 export function toggleLogReaction(entryId, emoji, playerKey) {
@@ -484,15 +608,15 @@ export function toggleLogReaction(entryId, emoji, playerKey) {
     return { ok: true, history: await saveHistory(history) };
   };
 
-  historyWriteQueue = historyWriteQueue.then(operation, operation);
-  return historyWriteQueue;
+  return enqueueHistoryOperation(operation);
 }
 
 export function clearRollHistory() {
   const operation = async () => {
+    pendingLocalEntries.clear();
+    lastObservedHistory = [];
     await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: [] });
     return [];
   };
-  historyWriteQueue = historyWriteQueue.then(operation, operation);
-  return historyWriteQueue;
+  return enqueueHistoryOperation(operation);
 }

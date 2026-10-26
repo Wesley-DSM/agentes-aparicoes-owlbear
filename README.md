@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.54.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.55.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -207,6 +207,15 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 
 ## Ajustes da versão 0.54.0
 
-- A ordem do CHAT agora segue a ordem armazenada dos eventos, em vez de ordenar por timestamps locais que podem divergir entre participantes.
+- A ordem do CHAT segue a ordem armazenada dos eventos, em vez de ordenar por timestamps locais que podem divergir entre participantes.
 - Escritas do histórico fazem uma releitura e mesclagem antes de gravar para preservar mensagens recentes adicionadas por outros participantes.
 - Um mecanismo temporário de reconciliação restaura mensagens recém-enviadas caso uma atualização concorrente de metadados as sobrescreva.
+
+
+## Ajustes da versão 0.55.0
+
+- Novas mensagens, rolagens, ataques e usos de poderes/rituais recebem um carimbo de data de uma referência de horário sincronizada via HTTPS, nunca do relógio de parede do dispositivo; há uma segunda fonte como contingência.
+- O horário de cada evento é exibido explicitamente no fuso de Brasília (`America/Sao_Paulo`), mesmo que participantes estejam em fusos diferentes.
+- A extensão consulta por HTTPS uma referência de horário sincronizada (com fonte alternativa) periodicamente e usa um relógio monotônico entre consultas; se a rede cair após uma sincronização bem-sucedida, continua a partir da última referência validada.
+- A ordem canônica do CHAT continua sendo a ordem dos eventos armazenados, sem reordenar o histórico por relógios de dispositivos.
+- Os carimbos de mensagens antigas não podem ser reconstruídos com segurança quando foram gravados a partir de relógios incorretos; a nova fonte de horário se aplica a eventos novos.

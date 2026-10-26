@@ -16,8 +16,13 @@ import { renderInlineRolls, resolveInlineRolls, updateInlineRollTestResult } fro
 import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
 import { INITIATIVE_SKILLS } from "./skills.js";
 import { DEFAULT_APPEARANCE_SETTINGS, normalizeAppearanceSettings } from "./appearanceSettings.js";
+import { newestFirstHistory } from "./chatOrder.js";
+import { BRASILIA_TIME_ZONE, synchronizeBrasiliaClock } from "./brasiliaTime.js";
 
 const byId = (id) => document.getElementById(id);
+void synchronizeBrasiliaClock().catch((error) => {
+  console.debug("A&A: o horário de referência será sincronizado ao enviar a primeira mensagem.", error);
+});
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 const SHEET_KEY = `${EXTENSION_ID}/sheet`;
 const DISPLAY_SETTINGS_KEY = `${EXTENSION_ID}/display-settings`;
@@ -1106,12 +1111,14 @@ function makeInitiativeRow(entry, item, state, index, preview = false) {
   return row;
 }
 
-function formatRollHistoryTime(timestamp) {
+function formatRollHistoryTime(timestamp, timestampSource = "legacy") {
+  if (timestampSource !== "brasilia") return "Horário anterior à sincronização";
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return "Horário desconhecido";
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "medium",
+    timeZone: BRASILIA_TIME_ZONE,
   }).format(date);
 }
 
@@ -1257,8 +1264,9 @@ function makeRollHistoryEntry(entry) {
 
   const time = document.createElement("time");
   time.className = "roll-history-time";
-  time.dateTime = new Date(entry.rolledAt).toISOString();
-  time.textContent = formatRollHistoryTime(entry.rolledAt);
+  if (entry.timestampSource === "brasilia") time.dateTime = new Date(entry.rolledAt).toISOString();
+  else time.removeAttribute("datetime");
+  time.textContent = formatRollHistoryTime(entry.rolledAt, entry.timestampSource);
   identityRow.append(participantNames, time);
   headingContent.append(identityRow);
 
@@ -1472,7 +1480,8 @@ async function refreshRollHistory(metadata = null) {
     const roomMetadata = metadata ?? await OBR.room.getMetadata();
     if (sequence !== rollHistoryRenderSequence) return;
     const history = normalizeRollHistory(roomMetadata?.[ROLL_HISTORY_KEY]);
-    const newestFirst = [...history].reverse().sort((a, b) => b.rolledAt - a.rolledAt);
+    // The UI shows the newest event first while preserving persisted send order.
+    const newestFirst = newestFirstHistory(history);
     const fragment = document.createDocumentFragment();
     newestFirst.forEach((roll) => fragment.append(makeRollHistoryEntry(roll)));
     rollHistoryList.replaceChildren(fragment);
@@ -1947,8 +1956,7 @@ chatComposer.addEventListener("submit", async (event) => {
 
     const entry = {
       type: "chat-message",
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      rolledAt: Date.now(),
+      id: globalThis.crypto?.randomUUID?.() ?? `${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
       playerName: String(playerName || "Jogador"),
       characterName: token
         ? String(storedSheet?.characterName ?? token.name ?? "Personagem").trim() || "Personagem"
@@ -1963,7 +1971,7 @@ chatComposer.addEventListener("submit", async (event) => {
     await refreshRollHistory();
   } catch (error) {
     console.error("A&A: não foi possível enviar a mensagem no CHAT.", error);
-    OBR.notification.show("Não foi possível enviar a mensagem. Confira a conexão da sala.");
+    OBR.notification.show(error?.message?.includes("horário de referência") ? error.message : "Não foi possível enviar a mensagem. Confira a conexão da sala.");
   } finally {
     chatSendButton.disabled = false;
   }
@@ -1993,19 +2001,18 @@ logRollButtons.addEventListener("click", async (event) => {
     try { playerName = (await OBR.player.getName()) || "Jogador"; } catch { /* fallback */ }
     const roll = {
       type: "manual-roll",
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: globalThis.crypto?.randomUUID?.() ?? `${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
       playerName,
       characterName: "Rolagem manual",
       rollName: "Rolagem manual",
       dice: Array.from({ length: count }, secureRandomD10),
       dt: null,
-      rolledAt: Date.now(),
     };
     await appendRollHistory(roll);
     await refreshRollHistory();
   } catch (error) {
     console.error("A&A: não foi possível registrar a rolagem manual.", error);
-    OBR.notification.show("Não foi possível registrar a rolagem. Confira a conexão da sala.");
+    OBR.notification.show(error?.message?.includes("horário de referência") ? error.message : "Não foi possível registrar a rolagem. Confira a conexão da sala.");
   } finally {
     logRollButtons.querySelectorAll("button").forEach((item) => { item.disabled = false; });
   }
