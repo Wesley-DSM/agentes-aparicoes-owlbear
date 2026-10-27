@@ -51,9 +51,20 @@ test("defenses derive from skills and only equipped armor affects defense", () =
   assert.deepEqual(calculateDefenses({ skills, inventory, defenseActive: true }), { evasion: 8, protection: 5, conviction: 4 });
 });
 
-test("weapon reaction bonuses affect Evasion and Protection, never Conviction", () => {
-  const inventory = [{ category: "weapon", reactionActive: true, defletir: 1, aparar: 2 }];
-  assert.deepEqual(calculateDefenses({ skills, inventory }), { evasion: 8, protection: 4, conviction: 4 });
+test("Defletir and Aparar are separately activated and never affect Conviction", () => {
+  const inventory = [{ category: "weapon", equipped: true, defletir: 1, aparar: 2 }];
+  assert.deepEqual(calculateDefenses({ skills, inventory }), { evasion: 7, protection: 2, conviction: 4 });
+  assert.deepEqual(calculateDefenses({ skills, inventory, defletirActive: true }), { evasion: 8, protection: 2, conviction: 4 });
+  assert.deepEqual(calculateDefenses({ skills, inventory, apararActive: true }), { evasion: 7, protection: 4, conviction: 4 });
+  assert.deepEqual(calculateDefenses({ skills, inventory, defletirActive: true, apararActive: true }), { evasion: 8, protection: 4, conviction: 4 });
+});
+
+test("reaction defense buttons ignore bonuses from unequipped gear", () => {
+  const inventory = [
+    { category: "weapon", equipped: true, defletir: 2, aparar: 1 },
+    { category: "armor", equipped: false, armorKind: "escudo", defletir: 5, aparar: 5 },
+  ];
+  assert.deepEqual(calculateDefenses({ skills, inventory, defletirActive: true, apararActive: true }), { evasion: 9, protection: 3, conviction: 4 });
 });
 
 test("A&A skill tests count tens and qualifying non-highest dice as criticals", () => {

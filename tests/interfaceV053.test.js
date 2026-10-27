@@ -38,3 +38,27 @@ test("standalone equipment treats Sem Armadura like an ordinary armor item", () 
   assert.doesNotMatch(runtime, /if \(item\.defaultEquipmentKey === "no-armor"\) return/);
   assert.match(runtime, /Evasão \$\{item\.evasionBase\} \+ Agilidade/);
 });
+
+
+test("Defletir and Aparar have separate reaction controls and affect only their mapped defenses", () => {
+  const html = read("../sheet.html");
+  const sheet = read("../src/sheet.js");
+  const equipment = read("../src/equipment.js");
+  assert.match(html, /id="defletir-toggle"[^>]*>Defletir<\/button>/);
+  assert.match(html, /id="aparar-toggle"[^>]*>Aparar<\/button>/);
+  assert.match(html, /class="reaction-defense-buttons"/);
+  assert.match(sheet, /toggleReactionDefense\("defletir"\)/);
+  assert.match(sheet, /toggleReactionDefense\("aparar"\)/);
+  assert.match(equipment, /evasion.*defletirBonus/s);
+  assert.match(equipment, /protection.*apararBonus/s);
+  assert.match(equipment, /const conviction = getSkillRank\(skills, "vontade"\)/);
+});
+
+test("sheet startup includes a loading watchdog and a visible failure state", () => {
+  const html = read("../sheet.html");
+  const sheet = read("../src/sheet.js");
+  assert.match(html, /failIfStuck/);
+  assert.match(html, /classList\.remove\("not-ready"\)/);
+  assert.match(sheet, /withTimeout\(OBR\.player\.getRole\(\)/);
+  assert.match(sheet, /selectedName\.textContent = "Falha ao carregar"/);
+});

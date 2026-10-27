@@ -221,7 +221,11 @@
               <div class="defense-stat defense-stat-protection"><span>PRO</span><output id="defense-protection-value">1</output></div>
               <div class="defense-stat defense-stat-conviction"><span>CON</span><output id="defense-conviction-value">1</output></div>
             </div>
-            <button id="defense-active-toggle" class="defense-active-button" type="button" aria-pressed="false">Defesa Ativa</button>
+            <button id="defense-active-toggle" class="defense-active-button" type="button" aria-pressed="false">Defesas Ativas</button>
+            <div class="reaction-defense-buttons" aria-label="Defesas por reação">
+              <button id="defletir-toggle" class="reaction-defense-button reaction-defletir-button" type="button" aria-pressed="false">Defletir</button>
+              <button id="aparar-toggle" class="reaction-defense-button reaction-aparar-button" type="button" aria-pressed="false">Aparar</button>
+            </div>
             <p id="defense-active-status" class="defense-active-status" hidden></p>
             <div class="defense-hidden-values" hidden aria-hidden="true">
               <input id="character-evasion" type="number" min="0" step="1" value="5" />
@@ -364,6 +368,32 @@
         Aguardando conexão com o Owlbear Rodeo…
       </section>
     </main>
+    <script>
+      (() => {
+        // Avoid leaving the panel on "Carregando ficha…" when a module or SDK boot fails.
+        const failIfStuck = () => {
+          const selectedName = document.getElementById("selected-name");
+          const notice = document.getElementById("notice");
+          if (!selectedName || !/carregando ficha/i.test(selectedName.textContent || "")) return;
+          selectedName.textContent = "Falha ao carregar";
+          document.getElementById("app")?.classList.remove("not-ready");
+          if (notice) {
+            notice.replaceChildren(document.createTextNode("A ficha não iniciou. Confira a publicação no GitHub Actions ou recarregue a extensão. Se continuar, abra o console do navegador para ver o erro."));
+            const retry = document.createElement("button");
+            retry.type = "button";
+            retry.className = "confirm-secondary";
+            retry.textContent = "Recarregar";
+            retry.addEventListener("click", () => window.location.reload());
+            retry.style.marginLeft = "8px";
+            notice.append(retry);
+            notice.dataset.type = "error";
+          }
+        };
+        window.setTimeout(failIfStuck, 15000);
+        window.addEventListener("error", () => window.setTimeout(failIfStuck, 0));
+        window.addEventListener("unhandledrejection", () => window.setTimeout(failIfStuck, 0));
+      })();
+    </script>
     <script type="module" src="./src/sheet.js"></script>
   </body>
 </html>

@@ -34,7 +34,8 @@ export function normalizeEquipment(items) {
       description: String(item.description ?? "").slice(0, 4000),
       uses: item.uses === "" || item.uses === null || item.uses === undefined ? "" : String(Math.max(0, Math.min(9999, Number.parseInt(item.uses, 10) || 0))),
       usesEnabled: item.usesEnabled === undefined ? (item.uses !== "" && item.uses !== null && item.uses !== undefined) : Boolean(item.usesEnabled),
-      equipped: Boolean(item.equipped),
+      // Legacy weapons did not store an equipped flag, so keep them equipped by default.
+      equipped: item.equipped === undefined ? category !== "armor" : Boolean(item.equipped),
       skill: item.skill === "armas-de-fogo" ? "armas-de-fogo" : "armas-simples",
       damage: String(item.damage ?? "").slice(0, 100),
       critical: String(item.critical ?? "").slice(0, 30),
@@ -49,7 +50,7 @@ export function normalizeEquipment(items) {
       aparar: signedInteger(item.aparar ?? item.reactionProtection),
       reactionActive: Boolean(item.reactionActive),
     };
-    if (category !== "armor") normalized.equipped = true;
+    if (category === "supply") normalized.equipped = true;
     if (category !== "weapon") normalized.reactionActive = false;
     if (category !== "supply") { normalized.uses = ""; normalized.usesEnabled = false; }
     if (!normalized.usesEnabled) normalized.uses = "";
@@ -80,11 +81,15 @@ export function getSkillRank(skills, id) {
   return Number.isFinite(value) ? Math.max(1, Math.min(5, value)) : 1;
 }
 
-export function calculateDefenses({ skills = [], inventory = [], defenseActive = false } = {}) {
+export function calculateDefenses({
+  skills = [], inventory = [], defenseActive = false, defletirActive = false, apararActive = false,
+} = {}) {
   const items = Array.isArray(inventory) ? inventory : [];
   const equippedArmor = items.filter((item) => item?.category === "armor" && item.equipped && item.armorKind !== "escudo");
   const equippedShields = items.filter((item) => item?.category === "armor" && item.equipped && item.armorKind === "escudo");
-  const activeWeapons = items.filter((item) => item?.category === "weapon" && item.reactionActive);
+  // Defletir/Aparar are global reaction choices. Their values are gathered only
+  // from currently equipped weapons, armor, and shields when the matching action is active.
+  const equippedDefensiveItems = items.filter((item) => item?.equipped && (item.category === "weapon" || item.category === "armor"));
   const armorBaseEvasion = equippedArmor.length
     ? signedInteger(equippedArmor[equippedArmor.length - 1].evasionBase ?? (4 + signedInteger(equippedArmor[equippedArmor.length - 1].evasionBonus)))
     : 4;
@@ -93,12 +98,20 @@ export function calculateDefenses({ skills = [], inventory = [], defenseActive =
     : 0;
   const shieldEvasion = equippedShields.reduce((sum, item) => sum + signedInteger(item.evasionBonus), 0);
   const shieldProtection = equippedShields.reduce((sum, item) => sum + signedInteger(item.protectionBonus), 0);
-  const evasion = armorBaseEvasion + getSkillRank(skills, "agilidade") + shieldEvasion
-    + (defenseActive ? equippedArmor.concat(equippedShields).reduce((sum, item) => sum + signedInteger(item.activeEvasion), 0) : 0)
-    + activeWeapons.reduce((sum, item) => sum + signedInteger(item.defletir ?? item.reactionEvasion), 0);
-  const protection = armorBaseProtection + getSkillRank(skills, "fortitude") + shieldProtection
-    + (defenseActive ? equippedArmor.concat(equippedShields).reduce((sum, item) => sum + signedInteger(item.activeProtection), 0) : 0)
-    + activeWeapons.reduce((sum, item) => sum + signedInteger(item.aparar ?? item.reactionProtection), 0);
+  const activeEvasion = defenseActive
+    ? equippedArmor.concat(equippedShields).reduce((sum, item) => sum + signedInteger(item.activeEvasion), 0)
+    : 0;
+  const activeProtection = defenseActive
+    ? equippedArmor.concat(equippedShields).reduce((sum, item) => sum + signedInteger(item.activeProtection), 0)
+    : 0;
+  const defletirBonus = defletirActive
+    ? equippedDefensiveItems.reduce((sum, item) => sum + signedInteger(item.defletir ?? item.reactionEvasion), 0)
+    : 0;
+  const apararBonus = apararActive
+    ? equippedDefensiveItems.reduce((sum, item) => sum + signedInteger(item.aparar ?? item.reactionProtection), 0)
+    : 0;
+  const evasion = armorBaseEvasion + getSkillRank(skills, "agilidade") + shieldEvasion + activeEvasion + defletirBonus;
+  const protection = armorBaseProtection + getSkillRank(skills, "fortitude") + shieldProtection + activeProtection + apararBonus;
   const conviction = getSkillRank(skills, "vontade");
   return { evasion, protection, conviction };
 }

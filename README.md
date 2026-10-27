@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.55.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.56.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -75,6 +75,17 @@ Os arquivos HTML e os recursos internos usam caminhos relativos para funcionar s
 4. No Owlbear, adicione a URL pública de `manifest.json`.
 
 A pasta `dist/` é ignorada pelo Git e deve ser gerada novamente em cada publicação.
+
+## Publicação automática no GitHub Pages
+
+Este repositório publica a extensão automaticamente quando alterações são enviadas para a branch `main`. O workflow instala as dependências, executa `npm test`, compila o projeto e publica somente o conteúdo de `dist/`.
+
+- Página pública: https://wesley-dsm.github.io/agentes-aparicoes-owlbear/
+- Manifesto para adicionar no Owlbear Rodeo: https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json
+
+No GitHub, abra **Settings → Pages** e confirme que **Build and deployment → Source** está definido como **GitHub Actions**. Depois de enviar uma alteração, acompanhe **Actions → Publicar extensão A&A**; a atualização só estará publicada quando o workflow terminar com sucesso.
+
+Não envie a pasta `dist/` manualmente. Ela é gerada pelo workflow a cada publicação. O arquivo `.env` é apenas para builds locais; não é necessário criá-lo para a publicação automática.
 
 ## Referência e licença
 
@@ -219,3 +230,10 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 - A extensão consulta por HTTPS uma referência de horário sincronizada (com fonte alternativa) periodicamente e usa um relógio monotônico entre consultas; se a rede cair após uma sincronização bem-sucedida, continua a partir da última referência validada.
 - A ordem canônica do CHAT continua sendo a ordem dos eventos armazenados, sem reordenar o histórico por relógios de dispositivos.
 - Os carimbos de mensagens antigas não podem ser reconstruídos com segurança quando foram gravados a partir de relógios incorretos; a nova fonte de horário se aplica a eventos novos.
+
+
+## Ajustes da versão 0.56.0
+
+- Botões de reação separados para **Defletir** e **Aparar** abaixo de Defesas Ativas. Defletir soma à Evasão e Aparar à Proteção, considerando apenas armas, armaduras e escudos equipados. Convicção não é alterada.
+- Importação mais defensiva de fichas: listas de Poderes e Rituais ausentes, vazias ou com dados inválidos não substituem listas existentes sem indicação explícita de edição.
+- Inicialização com limite de tempo e estado de erro visível para evitar que a interface permaneça indefinidamente em “Carregando ficha”.

@@ -10,7 +10,7 @@ import { calculateDefenses, evaluateSkillTest, initializeEquipment, normalizeEqu
 import sheetTemplate from "../sheet.html?raw";
 import sheetStyles from "./style.css?inline";
 import standaloneRuntime from "./standalone-runtime.js?raw";
-import { buildStandaloneHtml, extractSheetFromImport } from "./standaloneFormat.js";
+import { buildStandaloneHtml, extractSheetFromImport, preserveExistingAbilityLists } from "./standaloneFormat.js";
 
 const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 const SHEET_KEY = `${EXTENSION_ID}/sheet`;
@@ -50,6 +50,8 @@ let editingEquipmentCategory = "supply";
 let editingEquipmentIsNew = false;
 let attackingWeaponId = null;
 let defenseActiveDraft = false;
+let defletirActiveDraft = false;
+let apararActiveDraft = false;
 const powersList = el("powers-list");
 const ritualsList = el("rituals-list");
 const parametersList = el("parameters-list");
@@ -76,6 +78,16 @@ const markdownPreviewTimers = new WeakMap();
 function setNotice(message, type = "info") {
   notice.textContent = message;
   notice.dataset.type = type;
+}
+
+function withTimeout(promise, operation, timeoutMs = 12000) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`Tempo esgotado ao ${operation}. Recarregue a extensão e tente novamente.`)), timeoutMs);
+    }),
+  ]).finally(() => window.clearTimeout(timer));
 }
 
 function numberFromInput(id, fallback = 0) {
@@ -182,6 +194,8 @@ function normalizeSheet(sheet, fallbackName = "") {
     inventory: equipmentState.inventory,
     equipmentDefaultsInitialized: true,
     defenseActive,
+    defletirActive: Boolean(sheet.defletirActive),
+    apararActive: Boolean(sheet.apararActive),
     powers: normalizeAbilities(sheet.powers),
     rituals: normalizeAbilities(sheet.rituals),
     parameters: normalizeNamedDescriptionEntries(sheet.parameters, "parameter"),
@@ -214,6 +228,8 @@ function readSheet(token) {
       protection: saved?.protection ?? "",
       conviction: saved?.conviction ?? "",
       defenseActive: saved?.defenseActive ?? false,
+      defletirActive: saved?.defletirActive ?? false,
+      apararActive: saved?.apararActive ?? false,
       equipmentDefaultsInitialized: saved?.equipmentDefaultsInitialized ?? false,
       hideFromPlayers: saved?.hideFromPlayers ?? false,
       showTokenName: saved?.showTokenName !== false,
@@ -263,6 +279,8 @@ function readSheetFromForm(token) {
       protection: readOptionalNumber("character-protection"),
       conviction: readOptionalNumber("character-conviction"),
       defenseActive: defenseActiveDraft,
+      defletirActive: defletirActiveDraft,
+      apararActive: apararActiveDraft,
       equipmentDefaultsInitialized: true,
       hideFromPlayers: Boolean(saved?.hideFromPlayers),
       showTokenName: saved?.showTokenName !== false,
@@ -270,8 +288,8 @@ function readSheetFromForm(token) {
       skills: readSkillsFromForm(),
       inventorySpaces: numberFromInput("inventory-spaces", 0),
       inventory: readInventoryFromForm(),
-      powers: readAbilitiesFromForm(powersList),
-      rituals: readAbilitiesFromForm(ritualsList),
+      powers: readAbilitiesFromForm(powersList, "powers", saved),
+      rituals: readAbilitiesFromForm(ritualsList, "rituals", saved),
       parameters: readNamedDescriptionEntriesFromForm(parametersList),
       traumas: readNamedDescriptionEntriesFromForm(traumasList),
       history: el("character-history").value.slice(0, 16000),
@@ -292,13 +310,18 @@ function readInventoryFromForm() {
   }).filter(Boolean);
 }
 
-function readAbilitiesFromForm(container) {
-  return [...container.querySelectorAll("[data-ability-card]")].map((card) => ({
+function readAbilitiesFromForm(container, field = null, savedSheet = null) {
+  const entries = [...container.querySelectorAll("[data-ability-card]")].map((card) => ({
     id: card.dataset.abilityId || createEntryId("ability"),
     name: card.querySelector('[data-ability-field="name"]').value.trim().slice(0, 140),
     traits: card.querySelector('[data-ability-field="traits"]').value.trim().slice(0, 500),
     description: card.querySelector('[data-ability-field="description"]').value.slice(0, 6000),
   }));
+  const saved = field ? savedSheet?.[field] : null;
+  if (field && entries.length === 0 && !dirtyAbilityLists.has(field) && Array.isArray(saved) && saved.length > 0) {
+    return normalizeAbilities(saved);
+  }
+  return entries;
 }
 
 function readNamedDescriptionEntriesFromForm(container) {
@@ -590,13 +613,10 @@ function renderInventory(items) {
         const attack = makeSmallButton("Atacar", "equipment-action-button equipment-attack-button", "equipmentAction");
         attack.dataset.equipmentAction = "attack";
         attack.title = `Atacar com ${item.name || "arma"}`;
-        actions.append(attack);
-        if ((item.defletir ?? item.reactionEvasion ?? 0) !== 0 || (item.aparar ?? item.reactionProtection ?? 0) !== 0) {
-          const reaction = makeSmallButton(item.reactionActive ? "Reação ativa" : "Reagir", "equipment-action-button", "equipmentAction");
-          reaction.dataset.equipmentAction = "reaction";
-          reaction.setAttribute("aria-pressed", String(Boolean(item.reactionActive)));
-          actions.append(reaction);
-        }
+        const equip = makeSmallButton(item.equipped ? "Equipada" : "Equipar", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`, "equipmentAction");
+        equip.dataset.equipmentAction = "toggle-equipped";
+        equip.setAttribute("aria-pressed", String(Boolean(item.equipped)));
+        actions.append(attack, equip);
       } else if (category === "armor") {
         const equip = makeSmallButton(item.equipped ? "Em uso" : "Equipar", `equipment-action-button ${item.equipped ? "is-equipped" : ""}`, "equipmentAction");
         equip.dataset.equipmentAction = "toggle-equipped";
@@ -706,6 +726,8 @@ function currentEquipmentData() {
     skills: readSkillsFromForm(),
     inventory: readInventoryFromForm(),
     defenseActive: defenseActiveDraft,
+    defletirActive: defletirActiveDraft,
+    apararActive: apararActiveDraft,
   };
 }
 
@@ -726,14 +748,31 @@ function updateDefenseDisplay(sheet = null) {
   if (button) {
     button.classList.toggle("is-active", Boolean(source.defenseActive));
     button.setAttribute("aria-pressed", String(Boolean(source.defenseActive)));
-    button.textContent = source.defenseActive ? "Defesa Ativa · Desativar" : "Defesa Ativa";
+    button.textContent = source.defenseActive ? "Defesas Ativas · Ativadas" : "Defesas Ativas";
+  }
+  const defletirButton = el("defletir-toggle");
+  const apararButton = el("aparar-toggle");
+  for (const [control, active, label] of [
+    [defletirButton, Boolean(source.defletirActive), "Defletir"],
+    [apararButton, Boolean(source.apararActive), "Aparar"],
+  ]) {
+    if (!control) continue;
+    control.classList.toggle("is-active", active);
+    control.setAttribute("aria-pressed", String(active));
+    control.textContent = active ? `${label} · Ativo` : label;
   }
   if (status) {
-    const equipped = (source.inventory ?? []).filter((item) => item.category === "armor" && item.equipped);
-    const evasionBonus = source.defenseActive ? equipped.reduce((sum, item) => sum + (Number(item.activeEvasion) || 0), 0) : 0;
-    const protectionBonus = source.defenseActive ? equipped.reduce((sum, item) => sum + (Number(item.activeProtection) || 0), 0) : 0;
-    status.hidden = !source.defenseActive;
-    status.textContent = source.defenseActive ? `Bônus ativos: EVA ${evasionBonus >= 0 ? "+" : ""}${evasionBonus} · PRO ${protectionBonus >= 0 ? "+" : ""}${protectionBonus}` : "";
+    const equipped = (source.inventory ?? []).filter((item) => item.equipped && (item.category === "armor" || item.category === "weapon"));
+    const evasionBonus = source.defenseActive ? equipped.filter((item) => item.category === "armor").reduce((sum, item) => sum + (Number(item.activeEvasion) || 0), 0) : 0;
+    const protectionBonus = source.defenseActive ? equipped.filter((item) => item.category === "armor").reduce((sum, item) => sum + (Number(item.activeProtection) || 0), 0) : 0;
+    const defletirBonus = source.defletirActive ? equipped.reduce((sum, item) => sum + (Number(item.defletir ?? item.reactionEvasion) || 0), 0) : 0;
+    const apararBonus = source.apararActive ? equipped.reduce((sum, item) => sum + (Number(item.aparar ?? item.reactionProtection) || 0), 0) : 0;
+    const parts = [];
+    if (source.defenseActive) parts.push(`Defesa ativa: EVA ${evasionBonus >= 0 ? "+" : ""}${evasionBonus} · PRO ${protectionBonus >= 0 ? "+" : ""}${protectionBonus}`);
+    if (source.defletirActive) parts.push(`Defletir: EVA ${defletirBonus >= 0 ? "+" : ""}${defletirBonus}`);
+    if (source.apararActive) parts.push(`Aparar: PRO ${apararBonus >= 0 ? "+" : ""}${apararBonus}`);
+    status.hidden = parts.length === 0;
+    status.textContent = parts.join(" · ");
   }
   return values;
 }
@@ -867,27 +906,16 @@ function cancelEquipmentEditor() {
 
 function toggleEquipmentEquipped(card) {
   const target = card?._equipmentData;
-  if (!target || target.category !== "armor" || isRestricted()) return;
+  if (!target || !["armor", "weapon"].includes(target.category) || isRestricted()) return;
   const entries = readInventoryFromForm();
   const item = entries.find((entry) => entry.id === target.id);
   if (!item) return;
   item.equipped = !item.equipped;
-  if (item.equipped && item.armorKind !== "escudo") {
+  if (item.equipped && item.category === "armor" && item.armorKind !== "escudo") {
     for (const entry of entries) {
       if (entry.id !== item.id && entry.category === "armor" && entry.armorKind !== "escudo") entry.equipped = false;
     }
   }
-  renderInventory(entries);
-  scheduleAutoSave();
-}
-
-function toggleWeaponReaction(card) {
-  const target = card?._equipmentData;
-  if (!target || target.category !== "weapon" || isRestricted()) return;
-  const entries = readInventoryFromForm();
-  const item = entries.find((entry) => entry.id === target.id);
-  if (!item) return;
-  item.reactionActive = !item.reactionActive;
   renderInventory(entries);
   scheduleAutoSave();
 }
@@ -908,7 +936,18 @@ async function toggleDefenseActive() {
   defenseActiveDraft = !defenseActiveDraft;
   updateDefenseDisplay();
   scheduleAutoSave();
-  setNotice(defenseActiveDraft ? "Defesa Ativa aplicada." : "Defesa Ativa encerrada.", "success");
+  setNotice(defenseActiveDraft ? "Defesas ativas aplicadas." : "Defesas ativas encerradas.", "success");
+}
+
+function toggleReactionDefense(kind) {
+  if (isRestricted()) return;
+  if (kind === "defletir") defletirActiveDraft = !defletirActiveDraft;
+  else if (kind === "aparar") apararActiveDraft = !apararActiveDraft;
+  else return;
+  updateDefenseDisplay();
+  scheduleAutoSave();
+  const active = kind === "defletir" ? defletirActiveDraft : apararActiveDraft;
+  setNotice(`${kind === "defletir" ? "Defletir" : "Aparar"} ${active ? "ativado" : "desativado"}.`, "success");
 }
 
 async function openWeaponAttack(item) {
@@ -1161,7 +1200,7 @@ async function openNameAppearanceDialog() {
   if (!activeTokenId || !activeToken || isRestricted()) return;
   try {
     await flushPendingSheetSave();
-    const items = await OBR.scene.items.getItems([activeTokenId]);
+    const items = await withTimeout(OBR.scene.items.getItems([activeTokenId]), "ler o token selecionado");
     const token = items[0] ?? activeToken;
     const sheet = readSheet(token);
     const roomMetadata = await OBR.room.getMetadata();
@@ -1307,6 +1346,7 @@ async function saveResourceSettings() {
 }
 
 function writeSheetToForm(sheet) {
+  dirtyAbilityLists.clear();
   el("character-name").value = sheet.characterName;
   el("character-class").value = sheet.characterClass;
   el("character-organization").value = sheet.organization;
@@ -1328,6 +1368,8 @@ function writeSheetToForm(sheet) {
   el("inventory-spaces").value = sheet.inventorySpaces;
   el("character-history").value = sheet.history;
   defenseActiveDraft = Boolean(sheet.defenseActive);
+  defletirActiveDraft = Boolean(sheet.defletirActive);
+  apararActiveDraft = Boolean(sheet.apararActive);
   renderSkills(sheet.skills);
   renderEntryLists(sheet);
   refreshIdentityPreviews();
@@ -1345,6 +1387,8 @@ function clearFormForRestrictedMode() {
   for (const select of form.querySelectorAll("select")) select.selectedIndex = 0;
   skillsList.replaceChildren();
   defenseActiveDraft = false;
+  defletirActiveDraft = false;
+  apararActiveDraft = false;
   renderInventory([]);
   updateDefenseDisplay({ skills: [], inventory: [], defenseActive: false });
   powersList.replaceChildren();
@@ -1614,7 +1658,7 @@ function refreshEmptyState(container, emptyText, cardSelector) {
 function addInventoryEntry(category = "supply") {
   const entries = readInventoryFromForm();
   const defaultItem = category === "weapon"
-    ? { category, name: "", spaces: 0, skill: "armas-simples", damage: "", critical: "", description: "", defletir: 0, aparar: 0 }
+    ? { category, name: "", spaces: 0, equipped: true, skill: "armas-simples", damage: "", critical: "", description: "", defletir: 0, aparar: 0 }
     : category === "armor"
       ? { category, name: "", armorKind: "armadura", spaces: 0, evasionBase: 4, protectionBase: 0, evasionBonus: 0, protectionBonus: 0, activeEvasion: 0, activeProtection: 0, equipped: false, description: "" }
       : { category: "supply", name: "", spaces: 1, usesEnabled: false, uses: "", description: "" };
@@ -1626,7 +1670,9 @@ function addInventoryEntry(category = "supply") {
 
 function addAbilityEntry(kind) {
   const container = kind === "power" ? powersList : ritualsList;
-  const entries = readAbilitiesFromForm(container);
+  const field = kind === "power" ? "powers" : "rituals";
+  const entries = readAbilitiesFromForm(container, field, activeToken?.metadata?.[SHEET_KEY]);
+  dirtyAbilityLists.add(field);
   entries.push({ id: createEntryId("ability"), name: "", traits: "", description: "" });
   renderAbilityList(container, entries, kind);
   setActiveTab("abilities-tab");
@@ -1664,6 +1710,8 @@ function removeInventoryCard(card) {
 
 function removeAbilityCard(card) {
   const kind = card.dataset.abilityKind;
+  const field = kind === "power" ? "powers" : "rituals";
+  dirtyAbilityLists.add(field);
   const container = kind === "power" ? powersList : ritualsList;
   card.remove();
   refreshEmptyState(container, kind === "power" ? "Nenhum poder cadastrado." : "Nenhum ritual cadastrado.", "[data-ability-card]");
@@ -1845,14 +1893,19 @@ async function importCurrentSheet(file) {
     await saveQueue;
     const latestItems = await OBR.scene.items.getItems([activeTokenId]);
     const token = latestItems[0] ?? activeToken;
-    const importedSheet = normalizeSheet(candidate, token.name ?? "Personagem");
+    const existingSheet = readSheet(token);
+    const { sheet: importCandidate, preserved } = preserveExistingAbilityLists(candidate, existingSheet);
+    const preservedLists = preserved.map((field) => field === "powers" ? "Poderes" : "Rituais");
+    const importedSheet = normalizeSheet(importCandidate, token.name ?? "Personagem");
     await persistSheet(token, importedSheet);
     const refreshedItems = await OBR.scene.items.getItems([activeTokenId]);
     activeToken = refreshedItems[0] ?? token;
     activeSheet = importedSheet;
     applySheetAccess(importedSheet, "Ficha importada com sucesso.");
     sheetOptionsDialog.close();
-    setNotice("Ficha importada com sucesso.", "success");
+    setNotice(preservedLists.length
+      ? `Ficha importada. ${preservedLists.join(" e ")} foram preservados porque o arquivo não continha entradas válidas.`
+      : "Ficha importada com sucesso.", "success");
   } catch (error) {
     console.error("A&A: não foi possível importar a ficha.", error);
     setNotice(error instanceof SyntaxError ? "O arquivo não contém JSON válido." : (error?.message || "Não foi possível importar a ficha."), "error");
@@ -1899,6 +1952,8 @@ deleteTokenDialog.addEventListener("click", (event) => {
 visibilityButton.addEventListener("click", () => void togglePlayerVisibility());
 tokenNameButton.addEventListener("click", () => void openNameAppearanceDialog());
 el("defense-active-toggle").addEventListener("click", () => void toggleDefenseActive());
+el("defletir-toggle").addEventListener("click", () => toggleReactionDefense("defletir"));
+el("aparar-toggle").addEventListener("click", () => toggleReactionDefense("aparar"));
 el("equipment-dialog-save").addEventListener("click", saveEquipmentEditor);
 el("equipment-armor-kind").addEventListener("change", () => updateArmorEditorLabels());
 el("equipment-uses-enabled").addEventListener("change", () => {
@@ -2188,7 +2243,6 @@ form.addEventListener("click", (event) => {
     if (action === "edit" && card) openEquipmentEditor(card.dataset.inventoryCategory, card._equipmentData);
     else if (action === "attack" && card) openWeaponAttack(card._equipmentData);
     else if (action === "toggle-equipped" && card) toggleEquipmentEquipped(card);
-    else if (action === "reaction" && card) toggleWeaponReaction(card);
     else if (action === "uses-down" && card) adjustSupplyUses(card, -1);
     else if (action === "uses-up" && card) adjustSupplyUses(card, 1);
     return;
@@ -2256,6 +2310,8 @@ form.addEventListener("click", (event) => {
 });
 
 form.addEventListener("input", (event) => {
+  const abilityContainer = event.target.closest?.("#powers-list, #rituals-list");
+  if (abilityContainer) dirtyAbilityLists.add(abilityContainer.id === "powers-list" ? "powers" : "rituals");
   if (event.target.matches("#inventory-spaces-editor")) return;
   if (event.target.matches("input, textarea")) {
     if (event.target.matches("[data-markdown-editor]") && event.target.dataset.formatReplace !== "true") {
@@ -2342,8 +2398,8 @@ async function refreshTokenAccessIfChanged() {
 async function initializeSheet() {
   if (!sdkReady) return;
   try {
-    currentRole = await OBR.player.getRole();
-    const selection = await OBR.player.getSelection();
+    currentRole = await withTimeout(OBR.player.getRole(), "consultar o papel do jogador");
+    const selection = await withTimeout(OBR.player.getSelection(), "ler a seleção de tokens");
     if (!selection?.length || selection.length !== 1) {
       activeTokenId = null;
       activeToken = null;
@@ -2361,7 +2417,7 @@ async function initializeSheet() {
       return;
     }
 
-    const items = await OBR.scene.items.getItems(selection);
+    const items = await withTimeout(OBR.scene.items.getItems(selection), "ler o token selecionado");
     const token = items.find((item) => item.layer === "CHARACTER" && item.type === "IMAGE");
     if (!token) {
       activeTokenId = null;
@@ -2400,10 +2456,12 @@ async function initializeSheet() {
       });
     }
   } catch (error) {
-    console.error(error);
+    console.error("A&A: falha ao carregar a ficha.", error);
+    selectedName.textContent = "Falha ao carregar";
+    app.classList.remove("not-ready");
     form.hidden = false;
     setFormEnabled(false);
-    setNotice("Não foi possível carregar a ficha. Confira se a extensão está aberta dentro de uma sala do Owlbear.", "error");
+    setNotice(error?.message || "Não foi possível carregar a ficha. Confira se a extensão está aberta dentro de uma sala do Owlbear.", "error");
   }
 }
 
@@ -2420,14 +2478,31 @@ form.addEventListener("keydown", (event) => {
 });
 
 form.addEventListener("submit", (event) => event.preventDefault());
-attachIdentityPreviewFields();
-attachStaticMarkdownEditors();
-themeController.apply();
 setFormEnabled(false);
 
-OBR.onReady(() => {
-  themeController.connect(OBR);
-  sdkReady = true;
-  app.classList.remove("not-ready");
-  void initializeSheet();
-});
+// Keep startup resilient: an optional preview/theme initializer must not prevent
+// OBR.onReady from registering, otherwise the panel can stay on “Carregando ficha…”.
+for (const [label, initialize] of [
+  ["previsualizações de identidade", attachIdentityPreviewFields],
+  ["editores de formatação", attachStaticMarkdownEditors],
+  ["tema", () => themeController.apply()],
+]) {
+  try { initialize(); }
+  catch (error) { console.error(`A&A: falha ao iniciar ${label}.`, error); }
+}
+
+try {
+  OBR.onReady(() => {
+    sdkReady = true;
+    app.classList.remove("not-ready");
+    try { themeController.connect(OBR); }
+    catch (error) { console.error("A&A: não foi possível conectar o tema do Owlbear.", error); }
+    void initializeSheet();
+  });
+} catch (error) {
+  console.error("A&A: não foi possível registrar a inicialização do Owlbear.", error);
+  selectedName.textContent = "Falha ao carregar";
+  form.hidden = false;
+  setFormEnabled(false);
+  setNotice("A extensão não conseguiu iniciar a conexão com o Owlbear. Recarregue a extensão e confira a publicação.", "error");
+}

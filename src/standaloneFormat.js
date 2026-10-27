@@ -55,9 +55,17 @@ export function extractSheetFromImport(text, filename = "") {
     parsed = JSON.parse(text);
   }
 
-  const candidate = parsed?.format === FORMAT_NAME
+  const nestedSheet = parsed?.sheet && typeof parsed.sheet === "object" && !Array.isArray(parsed.sheet)
     ? parsed.sheet
-    : (parsed?.sheet && typeof parsed.sheet === "object" ? parsed.sheet : parsed);
+    : null;
+  const candidate = nestedSheet ? { ...nestedSheet } : { ...parsed };
+  // Some legacy wrappers stored ability lists beside the nested `sheet` object.
+  // Recover those lists when the nested object omitted the properties entirely.
+  for (const field of ["powers", "rituals"]) {
+    if (!Object.prototype.hasOwnProperty.call(candidate, field) && Array.isArray(parsed?.[field])) {
+      candidate[field] = parsed[field];
+    }
+  }
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("O arquivo não contém uma ficha válida.");
   }
@@ -65,5 +73,29 @@ export function extractSheetFromImport(text, filename = "") {
   if (!recognizedFields.some((key) => Object.prototype.hasOwnProperty.call(candidate, key))) {
     throw new Error("Este arquivo não parece ser uma ficha exportada de Agentes & Aparições.");
   }
-  return candidate;
+  const editedLists = Array.isArray(parsed?.abilityListsEdited)
+    ? parsed.abilityListsEdited.filter((key) => key === "powers" || key === "rituals")
+    : [];
+  return { ...candidate, __abilityListsEdited: editedLists };
+}
+
+/** Avoid accidental loss of powers and rituals when importing partial or older exports. */
+export function preserveExistingAbilityLists(incomingSheet, existingSheet = {}) {
+  const result = { ...(incomingSheet && typeof incomingSheet === "object" ? incomingSheet : {}) };
+  const explicitlyEdited = new Set(Array.isArray(result.__abilityListsEdited) ? result.__abilityListsEdited : []);
+  const preserved = [];
+  for (const field of ["powers", "rituals"]) {
+    const incoming = result[field];
+    const existing = existingSheet?.[field];
+    const incomingHasUsableEntries = Array.isArray(incoming)
+      && incoming.some((entry) => entry && typeof entry === "object" && !Array.isArray(entry));
+    if (!incomingHasUsableEntries
+      && Array.isArray(existing) && existing.length > 0
+      && !explicitlyEdited.has(field)) {
+      result[field] = existing;
+      preserved.push(field);
+    }
+  }
+  delete result.__abilityListsEdited;
+  return { sheet: result, preserved };
 }

@@ -2396,3 +2396,10 @@ button.initiative-detail-defense, button.initiative-detail-passive-skill { font-
   .inline-tutorial-item { grid-template-columns: minmax(0, 1fr); gap: 5px; }
   .equipment-dialog { width: calc(100% - 16px); max-width: calc(100% - 16px); padding: 10px; }
 }
+
+/* Reaction-defense toggles, displayed below the main Active Defense control. */
+.reaction-defense-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.reaction-defense-button { min-height: 34px; padding: 7px 10px; border: 1px solid #454545; border-radius: 8px; color: #e8e8e8; background: #202020; font-size: 11px; font-weight: 800; cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
+.reaction-defense-button:hover:not(:disabled) { border-color: #777; background: #2a2a2a; }
+.reaction-defense-button.is-active { color: #fff; background: #245e39; border-color: #5da879; box-shadow: inset 0 0 0 1px #5da87938; }
+.reaction-defense-button:disabled { opacity: .5; cursor: not-allowed; }
