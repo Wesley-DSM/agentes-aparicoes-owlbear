@@ -52,6 +52,8 @@ let attackingWeaponId = null;
 let defenseActiveDraft = false;
 let defletirActiveDraft = false;
 let apararActiveDraft = false;
+// Tracks whether each ability list was deliberately edited. This must exist before the first sheet render.
+const dirtyAbilityLists = new Set();
 const powersList = el("powers-list");
 const ritualsList = el("rituals-list");
 const parametersList = el("parameters-list");

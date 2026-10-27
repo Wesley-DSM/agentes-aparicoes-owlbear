@@ -1,6 +1,6 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.56.0. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+Versão 0.56.1. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
 
 ## Uso
 
@@ -230,6 +230,12 @@ Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[htt
 - A extensão consulta por HTTPS uma referência de horário sincronizada (com fonte alternativa) periodicamente e usa um relógio monotônico entre consultas; se a rede cair após uma sincronização bem-sucedida, continua a partir da última referência validada.
 - A ordem canônica do CHAT continua sendo a ordem dos eventos armazenados, sem reordenar o histórico por relógios de dispositivos.
 - Os carimbos de mensagens antigas não podem ser reconstruídos com segurança quando foram gravados a partir de relógios incorretos; a nova fonte de horário se aplica a eventos novos.
+
+
+## Correção da versão 0.56.1
+
+- Corrigido o carregamento inicial da ficha: o controle interno de edição de Poderes e Rituais era utilizado antes de ser declarado, gerando `ReferenceError` na primeira renderização e deixando a ficha em estado de falha.
+- Incluído teste de regressão para garantir que o controle seja inicializado antes da primeira renderização.
 
 
 ## Ajustes da versão 0.56.0
