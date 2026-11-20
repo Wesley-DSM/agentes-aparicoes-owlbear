@@ -4,8 +4,6 @@
 
 **Manifesto da extensão:** https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json
 
-**Página pública:** https://wesley-dsm.github.io/agentes-aparicoes-owlbear/
-
 Adicione o endereço do manifesto à lista de extensões do Owlbear Rodeo. A extensão é atualizada pela publicação do repositório no GitHub Pages.
 
 ## Como abrir a ficha
