@@ -265,7 +265,7 @@
           <div id="custom-theme-controls" class="custom-theme-controls" hidden>
             <div class="theme-controls-heading">
               <h3>Cores</h3>
-              <button id="reset-custom-theme" class="theme-reset-button" type="button">Restaurar padrão</button>
+              <div class="theme-preset-actions"><select id="saved-theme-styles" aria-label="Estilos salvos"><option value="">Estilos salvos</option></select><button id="save-custom-theme" class="theme-reset-button" type="button">Salvar estilo</button><button id="reset-custom-theme" class="theme-reset-button" type="button">Restaurar padrão</button></div>
             </div>
             <div class="theme-color-grid">
               <label class="theme-color-control" for="theme-color-background"><span>Fundo</span><input id="theme-color-background" data-theme-color="background" type="color" value="#111111" /></label>
@@ -299,7 +299,8 @@
         </div>
         <div id="settings-tutorial-pane" class="settings-tutorial-pane" data-settings-pane hidden>
           <section class="panel tutorial-panel">
-            <div class="panel-heading"><h2>Formatação de texto</h2></div>
+            <div class="panel-heading"><h2>Formatação de texto</h2><button class="collapse-toggle" type="button" data-collapse-target="tutorial-formatting-content" aria-expanded="true" aria-label="Esconder Formatação de texto">−</button></div>
+            <div id="tutorial-formatting-content" class="collapsible-content">
             <p class="tutorial-intro">Use estes códigos nas descrições, poderes, rituais e mensagens do CHAT. A formatação aparece automaticamente depois de salvar ou enviar.</p>
             <div class="inline-tutorial-list">
               <article class="inline-tutorial-item"><code># Título</code><div><strong>Títulos</strong><p>Coloque #, ## ou ### no início de uma linha para criar títulos em três níveis.</p></div></article>
@@ -308,9 +309,11 @@
               <article class="inline-tutorial-item"><code>[Dano 1d6]</code><div><span class="ability-trait">Dano 1d6</span><p>Colchetes simples criam um traço destacado, igual aos usados em poderes e rituais.</p></div></article>
               <article class="inline-tutorial-item"><code>~~texto~~</code><div><strong><del>texto</del></strong><p>Dois tils antes e depois deixam o texto tachado. Use crases para <code>código</code>.</p></div></article>
             </div>
+            </div>
           </section>
           <section class="panel tutorial-panel">
-            <div class="panel-heading"><h2>Ferramentas inline</h2></div>
+            <div class="panel-heading"><h2>Ferramentas inline</h2><button class="collapse-toggle" type="button" data-collapse-target="tutorial-inline-content" aria-expanded="true" aria-label="Esconder Ferramentas inline">−</button></div>
+            <div id="tutorial-inline-content" class="collapsible-content">
             <div class="inline-tutorial-list">
               <article class="inline-tutorial-item"><code>[[https://.../imagem.gif]]</code><div><strong>Imagem ou GIF</strong><p>Insira um link direto para uma imagem ou GIF hospedado em um endereço HTTPS ou HTTP.</p></div></article>
               <article class="inline-tutorial-item"><code>[[1d10]]</code><div><strong>Rolagem de dados</strong><p>Rola dados d10 no CHAT. Use de [[1d10]] a [[5d10]]. A DT pode ser preenchida no registro depois da rolagem.</p></div></article>
@@ -318,14 +321,25 @@
               <article class="inline-tutorial-item"><code>[[Percepção]]</code><div><strong>Referência de perícia</strong><p>Em descrições da ficha, mostra o valor atual da perícia. Use [[Percepção Passiva]] para mostrar o valor passivo. Sem @, isso não faz uma rolagem.</p></div></article>
               <article class="inline-tutorial-item"><code>[Texto](https://...)</code><div><strong>Link</strong><p>Transforma o texto entre colchetes em um link clicável para um endereço HTTP ou HTTPS.</p></div></article>
             </div>
+            </div>
           </section>
           <section class="panel tutorial-panel">
-            <div class="panel-heading"><h2>Exemplo completo</h2></div>
+            <div class="panel-heading"><h2>Exemplo completo</h2><button class="collapse-toggle" type="button" data-collapse-target="tutorial-example-content" aria-expanded="true" aria-label="Esconder Exemplo completo">−</button></div>
+            <div id="tutorial-example-content" class="collapsible-content">
             <pre class="tutorial-example-block"><code># Busca na escuridão
 A equipe avança em silêncio. *Algo se move* no corredor.
 [Condição: Escuro] [[@Percepção]]
 [[https://exemplo.com/imagem.gif]]</code></pre>
             <p class="tutorial-note">As rolagens inline são limitadas a 10 por mensagem. Os links de imagem devem apontar diretamente para o arquivo de imagem ou GIF.</p>
+            </div>
+          </section>
+          <section class="panel tutorial-panel">
+            <div class="panel-heading"><h2>Exportar e importar fichas</h2><button class="collapse-toggle" type="button" data-collapse-target="tutorial-export-content" aria-expanded="true" aria-label="Esconder Exportar e importar fichas">−</button></div>
+            <div id="tutorial-export-content" class="collapsible-content">
+              <p class="tutorial-intro">Em <strong>Opções da ficha</strong>, escolha <strong>Exportar</strong> para baixar um arquivo HTML independente. Abra esse arquivo no navegador para consultar e editar a ficha.</p>
+              <p class="tutorial-intro">Depois de editar, clique em <strong>Salvar</strong> no próprio navegador. Isso cria um <strong>novo arquivo HTML</strong>, sem substituir o original. Para atualizar o personagem no Owlbear, selecione o token, abra <strong>Opções da ficha → Importar</strong> e escolha o arquivo recém-salvo.</p>
+              <p class="tutorial-note">A importação aplica os dados ao token selecionado. Guarde o arquivo exportado original como cópia de segurança.</p>
+            </div>
           </section>
         </div>
       </section>

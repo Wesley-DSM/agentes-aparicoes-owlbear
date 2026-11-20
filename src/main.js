@@ -31,6 +31,10 @@ const SETTINGS_COLLAPSE_LABELS = Object.freeze({
   "token-appearance-content": "Aparência dos Tokens",
   "initiative-details-content": "Iniciativa Detalhada",
   "theme-settings-content": "Aparência Individual",
+  "tutorial-formatting-content": "Formatação de texto",
+  "tutorial-inline-content": "Ferramentas inline",
+  "tutorial-example-content": "Exemplo completo",
+  "tutorial-export-content": "Exportar e importar fichas",
 });
 const themeController = createThemeController();
 const initiativeList = byId("initiative-list");
@@ -766,6 +770,45 @@ byId("custom-theme-controls")?.addEventListener("input", (event) => {
 byId("reset-custom-theme")?.addEventListener("click", () => {
   themeController.resetCustomization();
   renderThemeControls();
+});
+
+const SAVED_THEME_STYLES_KEY = `${EXTENSION_ID}/saved-theme-styles`;
+function readSavedThemeStyles() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SAVED_THEME_STYLES_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.name === "string" && item.settings && typeof item.settings === "object") : [];
+  } catch { return []; }
+}
+function renderSavedThemeStyles(selectedName = "") {
+  const select = byId("saved-theme-styles");
+  if (!select) return;
+  select.replaceChildren(new Option("Estilos salvos", ""));
+  for (const style of readSavedThemeStyles()) select.add(new Option(style.name, style.name));
+  select.value = selectedName;
+}
+renderSavedThemeStyles();
+byId("save-custom-theme")?.addEventListener("click", () => {
+  const name = window.prompt("Nome para este estilo:");
+  if (!name || !name.trim()) return;
+  const normalizedName = name.trim().slice(0, 32);
+  const styles = readSavedThemeStyles();
+  const settings = themeController.getCustomization();
+  const existing = styles.findIndex((item) => item.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase());
+  if (existing >= 0) styles[existing] = { name: normalizedName, settings };
+  else styles.push({ name: normalizedName, settings });
+  try {
+    localStorage.setItem(SAVED_THEME_STYLES_KEY, JSON.stringify(styles));
+    renderSavedThemeStyles(normalizedName);
+    setSettingsNotice(`Estilo “${normalizedName}” salvo neste dispositivo.`, "success");
+  } catch { setSettingsNotice("Não foi possível salvar o estilo neste dispositivo.", "error"); }
+});
+byId("saved-theme-styles")?.addEventListener("change", (event) => {
+  const style = readSavedThemeStyles().find((item) => item.name === event.target.value);
+  if (!style) return;
+  themeController.setChoice("custom");
+  themeController.updateCustomization(style.settings);
+  renderThemeControls();
+  setSettingsNotice(`Estilo “${style.name}” aplicado.`, "success");
 });
 window.addEventListener("storage", (event) => {
   if (!event.key || event.key === THEME_STORAGE_KEY || event.key === THEME_CUSTOMIZATION_KEY) renderThemeControls();

@@ -1,245 +1,39 @@
 # Agentes & Aparições | Ficha para Owlbear Rodeo
 
-Versão 0.56.1. A ficha fica nos metadados do token e abre pelo menu de contexto **Ficha A&A**. As barras são vetores nativos anexados ao token.
+## Instalar no Owlbear Rodeo
 
-## Uso
+**Manifesto da extensão:** [Adicionar Ficha A&A ao Owlbear Rodeo](https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json)
 
-1. Requer Node.js.
-2. Na pasta do projeto, execute `npm install`.
-3. Execute `npm run dev` e mantenha o terminal aberto.
-4. No Owlbear Rodeo, adicione a extensão com `http://localhost:5173/manifest.json`.
-5. Para verificar as regras de DT e críticos, execute `npm test`.
-6. Selecione uma imagem na camada Personagens (`CHARACTER`) e abra o menu de contexto do item. No desktop, clique com o botão direito; em dispositivos touch, use o menu de contexto disponível no Owlbear. Escolha **Ficha A&A**.
-7. Os dados de identificação, Ferimentos, Estresses, defesas e perícias são salvos automaticamente no token. A interface lembra localmente quais seções foram recolhidas para cada token.
-8. Clique no nome de uma perícia para fazer a rolagem pública.
+**Página pública:** https://wesley-dsm.github.io/agentes-aparicoes-owlbear/
 
-## Temas da interface
+Adicione o endereço do manifesto à lista de extensões do Owlbear Rodeo. A extensão é atualizada pela publicação do repositório no GitHub Pages.
 
-A opção **Owlbear** acompanha a paleta ativa do Owlbear Rodeo, incluindo as alterações entre os modos claro e escuro. **Personalizado** usa o estilo escuro de A&A e permite ajustar cores, transparência e arredondamento. As preferências são guardadas apenas no navegador/dispositivo local e não alteram o tema visto pelos demais participantes.
+## Como abrir a ficha
 
-## Iniciativa e CHAT
+Selecione um token na camada **Personagens** (`CHARACTER`) e abra seu menu de contexto. No computador, clique com o botão direito; em dispositivos touch, use o menu de contexto do Owlbear. Selecione **Ficha A&A**.
 
-A iniciativa aceita valores decimais e mantém o turno ativo alinhado aos tokens que ainda existem na cena. Registros associados a tokens removidos da cena são limpos automaticamente.
+Os dados da ficha são salvos nos metadados do token e permanecem associados a ele na sala.
 
-A aba **CHAT** mostra até 20 mensagens e eventos públicos recentes: mensagens dos participantes, rolagens de perícias, rolagens manuais e usos compartilhados de poderes e rituais. Os botões I–V rolam de um a cinco d10. Cada dado rolado pode ser rerrolado após confirmação; os resultados anteriores ficam tachados e somente o resultado mais recente entra no cálculo. A DT fica à direita dos dados; o resultado aparece junto ao nome do personagem e do jogador. A DT aceita valores de 0 a 9999 e calcula os críticos conforme as regras de A&A 0.8. Os usos de poderes e rituais exibem seus traços, rolagens inline e descrição no CHAT. Os participantes podem reagir a cada evento com emojis e alternar suas reações. O mestre pode limpar o CHAT, com confirmação. O registro é compartilhado por meio dos metadados da sala, cujo limite de tamanho exige manter a lista compacta.
+## Funções disponíveis
 
-O seletor de abas indica mensagens não lidas, e o ícone da extensão recebe um ponto branco enquanto houver mensagens novas. O contador considera eventos novos do CHAT e marca o histórico como lido quando a aba é aberta com o painel visível.
+- **Ficha de personagem:** identificação, Classe, Organização, Ocupação, Evolução, Ferimentos, Estresses, defesas, Convicção e 22 perícias.
+- **Inventário:** cadastro e edição de armas, armaduras, escudos e suprimentos. Equipamentos podem participar dos cálculos de ataques e defesas.
+- **Poderes e rituais:** registro de habilidades, traços e descrições com formatação e referências a perícias.
+- **Rolagens:** testes de perícia e rolagens de dados compartilhados no CHAT, com DT, rerrolagens e resultados visíveis aos participantes.
+- **CHAT:** mensagens, rolagens, ataques e usos de poderes e rituais, com histórico compartilhado e reações.
+- **Iniciativa:** controle de turnos e rodadas, com opção de exibir recursos, defesas e perícias dos personagens.
+- **Aparência dos tokens:** personalização da posição e da apresentação de nomes, barras e defesas na cena.
+- **Aparência individual:** temas Owlbear e Personalizado. O tema personalizado permite ajustar cores, transparência e arredondamento sem alterar a interface dos demais participantes.
+- **Uso em dispositivos móveis:** interface adaptada a telas menores e controles por toque.
 
-Na iniciativa, clique no valor para editar a iniciativa. O mestre pode ativar o status detalhado pelo botão de olho e configurar quais recursos, defesas e perícias passivas aparecem. Todos os jogadores podem ajustar Ferimentos e Estresses dos tokens visíveis; tokens ocultos não oferecem controles de ajuste. As opções da ficha permitem apagar o token, limpar apenas os dados e importar/exportar fichas JSON ou HTML.
+## Exportar e importar fichas
 
-## Cabeçalho da ficha
+Em **Opções da ficha**, use **Exportar ficha para navegador** para gerar um arquivo HTML independente. Abra esse arquivo em um navegador moderno para consultar e editar os dados do personagem.
 
-Cada token guarda Nome, Classe, Organização, Ocupação e Evolução. Classe e Organização usam listas de opções; os demais campos são editáveis. A ficha antiga recebe valores iniciais vazios para Classe, Organização e Ocupação, e Evolução começa em 1%.
+Na ficha aberta no navegador, clique em **Salvar**. O navegador baixa um novo arquivo HTML com as alterações, preservando o arquivo original. Para transferir as mudanças de volta ao Owlbear, abra **Opções da ficha → Importar ficha** e selecione o arquivo HTML salvo.
 
-## Referências de perícia nas descrições
-
-Nas descrições de poderes e rituais, `[[Percepção]]` exibe o valor atual da perícia e `[[Percepção Passiva]]` exibe seu valor passivo (4 + valor da perícia). Para realizar uma rolagem inline, use `[[@Percepção]]`. As rolagens inline oferecem campo de DT e rerrolagens compartilhadas no CHAT.
-
-## Perícias e rolagens públicas
-
-A ficha contém as 22 perícias de A&A 0.8 agrupadas em Resistências, Equipamentos e Especialidades. Os treinamentos I–V ficam salvos nos metadados da ficha do token.
-
-Ao clicar no nome da perícia, a extensão rola de 1 a 5 dados de dez faces conforme o treinamento, organiza os resultados em ordem decrescente e destaca todos os resultados 10. O resultado é enviado ao CHAT compartilhado; não há janela separada para rolagens. Os participantes conectados com a extensão ativa veem os mesmos dados.
-
-## Ferimentos e Estresses
-
-Cada recurso soma os valores **Normais** e **Crônicos**. Os limites padrão são 5, 10 e 20: Machucado, Inconsciente e Morto para Ferimentos; Estressado, Enlouquecendo e Insano para Estresses. Clique no rótulo da barra para editar os limites ou ajustar Estresses Crônicos. O limite final determina a escala do preenchimento da barra.
-
-Dados antigos são migrados automaticamente: o valor atual passa para Normais, os limiares novos recebem valores padrão e os limites personalizados podem ser ajustados no popup do recurso.
-
-## Aparência dos Tokens
-
-A aba de aparência usa uma prévia clicável: selecione o nome, uma defesa ou qualquer parte de uma barra para abrir seu popup. As barras mostram apenas o valor atual. Posição dos status, posição do nome e alinhamentos usam seletores compactos; a referência arredondada indica a largura do token.
-
-## Barras
-
-- Usa curvas e textos nativos da cena, sem imagens externas.
-- Cada recurso tem trilho vetorial e preenchimento proporcional aos valores atuais.
-- Itens anexados aos tokens são reconstruídos pelo serviço de fundo a partir dos metadados da ficha.
-
-## Modo de desenvolvimento
-
-Para testar em grupo com `localhost`, cada participante precisa ter a extensão instalada e o servidor local acessível no próprio navegador. Para uso normal por várias pessoas, hospede a extensão em um endereço HTTPS público e atualize o URL da extensão.
-
-## Compatibilidade com dispositivos móveis
-
-A interface ajusta a altura da ficha e da janela de rolagem ao espaço visível, usa alvos de toque maiores e evita o zoom automático de campos no Safari para iOS. Como a interface é aberta dentro do Owlbear, teste os fluxos de edição, o teclado virtual, a janela de rolagem e a confirmação de reset em iOS e Android antes de considerar a extensão pronta para uso amplo.
-
-## Hospedagem pública
-
-Os arquivos HTML e os recursos internos usam caminhos relativos para funcionar sob uma subpasta, como no GitHub Pages de um repositório. O Owlbear espera que os campos `background_url`, `action.icon` e `action.popover` do manifesto apontem para URLs absolutas, então a compilação pode preencher essas URLs com `EXTENSION_BASE_URL`.
-
-1. Copie `.env.example` para `.env` e substitua `EXTENSION_BASE_URL` pela URL pública completa, incluindo `/nome-do-repositorio/` no GitHub Pages.
-2. Execute `npm run build`.
-3. Publique o conteúdo de `dist/`, não a pasta do código-fonte.
-4. No Owlbear, adicione a URL pública de `manifest.json`.
-
-A pasta `dist/` é ignorada pelo Git e deve ser gerada novamente em cada publicação.
-
-## Publicação automática no GitHub Pages
-
-Este repositório publica a extensão automaticamente quando alterações são enviadas para a branch `main`. O workflow instala as dependências, executa `npm test`, compila o projeto e publica somente o conteúdo de `dist/`.
-
-- Página pública: https://wesley-dsm.github.io/agentes-aparicoes-owlbear/
-- Manifesto para adicionar no Owlbear Rodeo: https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json
-
-No GitHub, abra **Settings → Pages** e confirme que **Build and deployment → Source** está definido como **GitHub Actions**. Depois de enviar uma alteração, acompanhe **Actions → Publicar extensão A&A**; a atualização só estará publicada quando o workflow terminar com sucesso.
-
-Não envie a pasta `dist/` manualmente. Ela é gerada pelo workflow a cada publicação. O arquivo `.env` é apenas para builds locais; não é necessário criá-lo para a publicação automática.
+A ficha independente permite editar os dados do personagem, mas não executa ações que dependem da sala do Owlbear, como rolagens compartilhadas, uso de poderes e rituais no CHAT ou participação na iniciativa. A importação também aceita arquivos JSON exportados por versões anteriores.
 
 ## Referência e licença
 
-A geometria das barras foi adaptada de **Bubbles for Owlbear Rodeo**, por Seamus Finlayson e Owlbear Rodeo, disponível em https://github.com/SeamusFinlayson/Bubbles-for-Owlbear-Rodeo e licenciada sob GNU GPL v3. Consulte `LICENSE` e `THIRD_PARTY_NOTICES.md`.
-
-## Comandos
-
-```bash
-npm install
-npm run dev
-```
-
-Para verificar a compilação de produção:
-
-```bash
-npm run build
-```
-
-
-Mensagens e descrições de poderes ou rituais aceitam imagens no formato `[[https://endereco-da-imagem]]`, rolagens inline como `[[1d10]]` ou `[[2d10]]` e testes de perícia como `[[Percepção]]`. Também é possível escrever o nome da perícia com um pequeno erro de digitação; o sistema tenta identificar a correspondência mais próxima. Os resultados das rolagens aparecem antes da descrição, com controles para definir DT e rerrolar dados, e os resultados também são repetidos em quadradinhos menores no ponto em que a expressão aparece no texto. Na ficha, antes do uso, as expressões são exibidas como etiquetas compactas. Para rolar uma perícia, é necessário ter um token selecionado no CHAT ou estar usando a ficha daquele token.
-
-## Correções da versão 0.40.0
-
-- Removida a camada de imagem monocromática que podia ficar por cima do token e ocultar nome, barras e defesas.
-- O botão de iniciativa agora tem formato quadrado.
-- Adicionado espaçamento entre os painéis Iniciativa Detalhada e Aparência Individual.
-
-
-## Correções da versão 0.41.0
-
-- Removida das configurações a opção de colorir tokens ao atingir Inconsciente.
-- Aproximados os botões de iniciativa e remoção, restaurando o espaçamento padrão dos cartões.
-- Ajustado o espaçamento entre os painéis de Iniciativa Detalhada e Aparência Individual.
-- Adicionados controles de aumento e redução de Ferimentos e Estresses para o mestre na iniciativa detalhada.
-- Perícias configuráveis agora aparecem na mesma linha das defesas, com opção de exibir o valor treinado ou o valor passivo.
-- Adicionada seleção de perícias por popup e pré-visualização dinâmica de um turno.
-
-
-## Correções da versão 0.42.0
-
-- Perícias passivas passam a ser exibidas no formato “Percepção Passiva 5”.
-- A iniciativa detalhada usa sempre barras de Ferimentos e Estresses, mantendo o espaço quando um limite é zero.
-- As opções são editadas diretamente na pré-visualização: defesas tachadas ficam ocultas na iniciativa real, e o botão + permite adicionar perícias.
-- Perícias na pré-visualização podem ser editadas ou removidas pelo popup.
-- O campo de iniciativa não exibe mais as setas numéricas do navegador.
-- Restaurado o espaçamento padrão entre Iniciativa Detalhada e Aparência Individual.
-
-
-## Ajustes da versão 0.43.0
-
-- Barras de Ferimentos e Estresses agora exibem nome, valor e controles dentro da própria barra.
-- Nome à esquerda e controles à direita; setas de ajuste sem fundo.
-- Perícias da iniciativa detalhada quebram para linhas adicionais quando não cabem na largura disponível.
-
-
-## Ajustes da versão 0.44.0
-
-- Barras da iniciativa detalhada ligeiramente mais finas e setas de ajuste centralizadas verticalmente.
-- Fundos de EVA, PRO e CON na iniciativa seguem as cores de personalização definidas nas configurações.
-- Popup de perícias permite escolher uma cor personalizada por perícia.
-- Botão de Iniciativa Detalhada disponível também para jogadores; os controles de alteração continuam restritos ao mestre.
-- Para jogadores, tokens com informações ocultas mantêm os rótulos Ferimentos e Estresses, mas não exibem valores nem preenchimento proporcional das barras, defesas ou perícias.
-
-
-
-
-## Ajustes da versão 0.53.0
-
-- O quadrado de dano no CHAT abre um detalhamento com cada parcela do cálculo: dano base, Força e cada crítico, mostrando também o dano total ou a razão para ele não existir.
-- O arredondamento do quadrado de dano acompanha o controle de arredondamento da aparência personalizada: 0 deixa os cantos retos e o máximo transforma o quadrado em uma forma arredondada.
-- Popups de equipamentos compactados; traços de Dano, Críticos e valores defensivos reutilizam o mesmo estilo dos traços de poderes e rituais.
-- “Sem Armadura” continua pré-adicionada ao criar uma ficha, mas não tem destaque visual nem regras automáticas especiais: pode ser editada, equipada, desequipada ou removida como qualquer armadura.
-- Adicionada a aba Tutorial nas configurações, com exemplos de títulos, negrito, itálico, traços, tachado, links, imagens/GIFs, referências a perícias e rolagens inline.
-- Testes adicionais cobrem o detalhamento do dano, a formatação de equipamentos e o tutorial.
-
-## Ajustes da versão 0.52.0
-
-- Removido o tipo Simples/Marcial da configuração das armas; a escolha de perícia fica entre Armas Simples e Armas de Fogo.
-- Renomeados os efeitos defensivos de reação para Defletir e Aparar, e movido o campo de Espaços para junto da perícia da arma.
-- Armaduras agora configuram bases de Evasão e Proteção, às quais se somam Agilidade e Fortitude; escudos seguem como bônus adicionais.
-- Ataques no CHAT seguem o formato das rolagens de perícia: subtítulo com perícia e arma, quadrado verde para o dano, dados, DT editável e descrição formatada abaixo. O ataque não abre um popup para pedir a DT.
-- Dano e Críticos aparecem como traços destacados. Textos entre colchetes simples, como `[Dano 2d6]`, usam a mesma formatação de traço nas descrições.
-- Popup de suprimentos permite ativar/desativar o contador de usos.
-- Melhorias de organização, rótulos e campos dos popups de equipamentos.
-
-## Ajustes da versão 0.51.0
-
-- Inventário organizado em Armas, Armaduras e escudos, e Suprimentos, com sessões recolhíveis e edição por popup.
-- Armas configuráveis com tipo, perícia (Armas Simples ou Armas de Fogo), dano, críticos e bônus defensivos por reação; ataques rolam a perícia, calculam o dano e registram o resultado no CHAT.
-- Armaduras e escudos configuráveis com bônus de Evasão/Proteção, valores de Defesa Ativa e estado de equipamento. A Defesa Ativa calcula os bônus sem alterar os valores-base.
-- Evasão, Proteção e Convicção exibidas lado a lado, com valores automáticos e cores correspondentes; Convicção não recebe bônus de equipamentos.
-- Punho e Sem Armadura adicionados automaticamente às fichas antigas e novas, preservando o inventário legado como suprimentos.
-- Contadores opcionais de usos para suprimentos e atualização da ficha HTML independente.
-- Testes para dados padrão, migração de inventário, cálculo das defesas, ataques e dano.
-
-## Ajustes da versão 0.50.0
-
-- Removidos textos de orientação redundantes e padronizado o popup de aparência do nome do token com os controles compactos da aparência da sala.
-- A prévia usa uma única área clicável por barra e mostra somente o valor atual.
-- Centralizada a normalização das configurações visuais e a lista de perícias compartilhada pela ficha e pela iniciativa.
-- Corrigida a compatibilidade com limites de recursos salvos em fichas antigas e uniformizado o padrão da fonte do nome.
-- Removido o código antigo e não utilizado do popup de rolagem; os resultados continuam concentrados no CHAT.
-- Adicionados testes de interface, configurações, compatibilidade e sincronização das perícias offline.
-
-## Ajustes da versão 0.47.0
-
-- Pré-visualização interativa para personalizar nomes, barras e defesas.
-- Barras de Ferimentos e Estresses usam Inconsciente/Enlouquecendo como escala, com marcadores de estágio e limite final para impedir aumentos após Morto/Insano.
-- Popups de configuração dos limites acessíveis pela ficha e pela iniciativa detalhada, incluindo Ferimentos Crônicos e Estresses Crônicos.
-- Botões compactos de adicionar e contador de espaços do inventário em formato `X/Y`.
-
-## Ajustes da versão 0.46.0
-
-- Personalização individual do nome de cada token, incluindo tamanho de 0% a 100%, alinhamento, cor, fonte e opção de ocultar.
-- Barras de Ferimentos e Estresses com fundo mais translúcido e preenchimento mais saturado; controles horizontais também na ficha.
-- Limites configuráveis para Machucado, Inconsciente, Morto, Estressado, Enlouquecendo e Insano, além do ajuste de Estresses Crônicos. A configuração também alimenta as barras da iniciativa detalhada.
-- Jogadores podem ajustar Ferimentos e Estresses pela iniciativa detalhada, exceto em tokens com informações ocultas.
-- CHAT em ordem do mais recente para o mais antigo, com limite de 20 mensagens. Rolagens e usos de poderes/rituais são enviados apenas para o CHAT, sem popups separados.
-- Seções da ficha são recolhidas e expandidas clicando no próprio título.
-- Os novos controles de limites, recursos e aparência do nome também funcionam na ficha HTML independente; as alterações de aparência do token são aplicadas ao importar o HTML no Owlbear.
-
-## Ficha HTML independente (versão 0.47.0)
-
-- Em **Opções da ficha → Exportar ficha para navegador**, a extensão gera um único arquivo HTML com estrutura, estilos, editor e dados do personagem incorporados. Ele pode ser aberto diretamente no Chrome, Edge, Firefox ou outro navegador moderno, sem instalar programas ou manter conexão com o Owlbear.
-- A interface reaproveita a folha de estilos da extensão para manter o tema visual semelhante ao Owlbear. Nome, classe, organização, ocupação, evolução, Ferimentos, Estresses, defesas, treinamento das perícias, inventário, poderes, rituais, parâmetros, traumas e história podem ser editados. É possível adicionar e remover itens.
-- Na ficha independente, **Salvar** baixa um novo arquivo HTML com as alterações embutidas. O navegador não sobrescreve silenciosamente o original. Importe o HTML atualizado em **Opções da ficha → Importar ficha** para aplicar os dados ao token.
-- O arquivo HTML salvo é lido como texto durante a importação; a extensão extrai e valida os dados embutidos sem executar o JavaScript do arquivo importado. Arquivos JSON exportados por versões anteriores continuam aceitos.
-- A versão independente não executa operações que dependem da sala do Owlbear, como rolar perícias, usar poderes/rituais no CHAT ou adicionar o personagem à iniciativa. Essas ações continuam disponíveis dentro da extensão.
-
-
-## Ajustes da versão 0.54.0
-
-- A ordem do CHAT segue a ordem armazenada dos eventos, em vez de ordenar por timestamps locais que podem divergir entre participantes.
-- Escritas do histórico fazem uma releitura e mesclagem antes de gravar para preservar mensagens recentes adicionadas por outros participantes.
-- Um mecanismo temporário de reconciliação restaura mensagens recém-enviadas caso uma atualização concorrente de metadados as sobrescreva.
-
-
-## Ajustes da versão 0.55.0
-
-- Novas mensagens, rolagens, ataques e usos de poderes/rituais recebem um carimbo de data de uma referência de horário sincronizada via HTTPS, nunca do relógio de parede do dispositivo; há uma segunda fonte como contingência.
-- O horário de cada evento é exibido explicitamente no fuso de Brasília (`America/Sao_Paulo`), mesmo que participantes estejam em fusos diferentes.
-- A extensão consulta por HTTPS uma referência de horário sincronizada (com fonte alternativa) periodicamente e usa um relógio monotônico entre consultas; se a rede cair após uma sincronização bem-sucedida, continua a partir da última referência validada.
-- A ordem canônica do CHAT continua sendo a ordem dos eventos armazenados, sem reordenar o histórico por relógios de dispositivos.
-- Os carimbos de mensagens antigas não podem ser reconstruídos com segurança quando foram gravados a partir de relógios incorretos; a nova fonte de horário se aplica a eventos novos.
-
-
-## Correção da versão 0.56.1
-
-- Corrigido o carregamento inicial da ficha: o controle interno de edição de Poderes e Rituais era utilizado antes de ser declarado, gerando `ReferenceError` na primeira renderização e deixando a ficha em estado de falha.
-- Incluído teste de regressão para garantir que o controle seja inicializado antes da primeira renderização.
-
-
-## Ajustes da versão 0.56.0
-
-- Botões de reação separados para **Defletir** e **Aparar** abaixo de Defesas Ativas. Defletir soma à Evasão e Aparar à Proteção, considerando apenas armas, armaduras e escudos equipados. Convicção não é alterada.
-- Importação mais defensiva de fichas: listas de Poderes e Rituais ausentes, vazias ou com dados inválidos não substituem listas existentes sem indicação explícita de edição.
-- Inicialização com limite de tempo e estado de erro visível para evitar que a interface permaneça indefinidamente em “Carregando ficha”.
+A geometria das barras foi adaptada de [Bubbles for Owlbear Rodeo](https://github.com/SeamusFinlayson/Bubbles-for-Owlbear-Rodeo), por Seamus Finlayson e Owlbear Rodeo, sob licença GNU GPL v3. Consulte os arquivos `LICENSE` e `THIRD_PARTY_NOTICES.md`.
