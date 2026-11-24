@@ -2,7 +2,9 @@
 
 ## Instalar no Owlbear Rodeo
 
-**Manifesto da extensão:** https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json
+**Manifesto da extensão:** [Adicionar Ficha A&A ao Owlbear Rodeo](https://wesley-dsm.github.io/agentes-aparicoes-owlbear/manifest.json)
+
+**Página pública:** https://wesley-dsm.github.io/agentes-aparicoes-owlbear/
 
 Adicione o endereço do manifesto à lista de extensões do Owlbear Rodeo. A extensão é atualizada pela publicação do repositório no GitHub Pages.
 

@@ -5,13 +5,12 @@ import { getDamageCalculationParts } from "./equipment.js";
 import { renderFormattedMarkdown, renderInlineMarkdown } from "./markdown.js";
 import { createThemeController, THEME_STORAGE_KEY, THEME_CUSTOMIZATION_KEY } from "./theme.js";
 import {
-  INITIATIVE_KEY,
   normalizeInitiativeState,
   readInitiativeState,
   sortInitiativeEntries,
   writeInitiativeState,
 } from "./initiative.js";
-import { MAX_DIE_RESULTS, MAX_ROLL_HISTORY, normalizeRollHistory, ROLL_HISTORY_KEY, appendRollHistory, clearRollHistory, rerollLogDie, toggleLogReaction, updateRollHistoryEntry } from "./rollHistory.js";
+import { MAX_DIE_RESULTS, MAX_ROLL_HISTORY, appendRollHistory, clearRollHistory, readRollHistory, rerollLogDie, toggleLogReaction, updateRollHistoryEntry } from "./rollHistory.js";
 import { renderInlineRolls, resolveInlineRolls, updateInlineRollTestResult } from "./inlineRolls.js";
 import { getTokenAppearanceLayout } from "./tokenAppearanceLayout.js";
 import { INITIATIVE_SKILLS } from "./skills.js";
@@ -64,6 +63,7 @@ const cancelRerollDieButton = byId("cancel-reroll-die");
 let sceneItemsUnsubscribe = null;
 let sceneReadyUnsubscribe = null;
 let roomMetadataUnsubscribe = null;
+let sceneMetadataUnsubscribe = null;
 let actionOpenUnsubscribe = null;
 let renderSequence = 0;
 let rollHistoryRenderSequence = 0;
@@ -1517,12 +1517,11 @@ function makeRollHistoryEntry(entry) {
 
   return card;
 }
-async function refreshRollHistory(metadata = null) {
+async function refreshRollHistory() {
   const sequence = ++rollHistoryRenderSequence;
   try {
-    const roomMetadata = metadata ?? await OBR.room.getMetadata();
+    const history = await readRollHistory();
     if (sequence !== rollHistoryRenderSequence) return;
-    const history = normalizeRollHistory(roomMetadata?.[ROLL_HISTORY_KEY]);
     // The UI shows the newest event first while preserving persisted send order.
     const newestFirst = newestFirstHistory(history);
     const fragment = document.createDocumentFragment();
@@ -1536,19 +1535,19 @@ async function refreshRollHistory(metadata = null) {
   }
 }
 
-async function refreshInitiativeView() {
+async function refreshInitiativeView({ pruneMissingTokens = false } = {}) {
   const sequence = ++renderSequence;
   try {
-    const [metadata, sceneItems, sceneReady] = await Promise.all([
-      OBR.room.getMetadata(),
+    const [storedState, sceneItems, sceneReady] = await Promise.all([
+      readInitiativeState(),
       OBR.scene.items.getItems(() => true),
       OBR.scene.isReady(),
     ]);
     if (sequence !== renderSequence || !sceneReady) return;
-    let state = normalizeInitiativeState(metadata?.[INITIATIVE_KEY]);
+    let state = normalizeInitiativeState(storedState);
     const itemById = new Map(sceneItems.map((item) => [item.id, item]));
     const liveEntries = state.entries.filter((entry) => itemById.has(entry.tokenId));
-    if (liveEntries.length !== state.entries.length) {
+    if (pruneMissingTokens && liveEntries.length !== state.entries.length) {
       state = normalizeInitiativeState({
         ...state,
         entries: liveEntries,
@@ -1556,8 +1555,8 @@ async function refreshInitiativeView() {
           ? state.activeTokenId
           : sortInitiativeEntries(liveEntries)[0]?.tokenId ?? null,
       });
-      // Remove initiative records for tokens deleted from the current scene.
-      // This also prevents the active-turn marker from pointing at a missing token.
+      // Remove initiative records only after an actual scene-item change.
+      // Room metadata updates, including CHAT cleanup, must never prune turns.
       void writeInitiativeState(state).catch((error) => {
         console.warn("A&A: não foi possível limpar tokens removidos da iniciativa.", error);
       });
@@ -2315,10 +2314,11 @@ OBR.onReady(async () => {
     ]);
     if (settingsLoaded) setSettingsNotice("Configurações carregadas.", "success");
     roomMetadataUnsubscribe = OBR.room.onMetadataChange((metadata) => {
-      void refreshDisplaySettings(metadata).then(() => refreshInitiativeView());
-      void refreshRollHistory(metadata);
+      void refreshDisplaySettings(metadata);
+      void refreshRollHistory();
     });
-    sceneItemsUnsubscribe = OBR.scene.items.onChange(() => void refreshInitiativeView());
+    sceneMetadataUnsubscribe = OBR.scene.onMetadataChange(() => void refreshInitiativeView());
+    sceneItemsUnsubscribe = OBR.scene.items.onChange(() => void refreshInitiativeView({ pruneMissingTokens: true }));
     sceneReadyUnsubscribe = OBR.scene.onReadyChange((ready) => {
       if (ready) void refreshInitiativeView();
     });
@@ -2336,6 +2336,7 @@ window.addEventListener("orientationchange", () => {
 
 window.addEventListener("beforeunload", () => {
   roomMetadataUnsubscribe?.();
+  sceneMetadataUnsubscribe?.();
   sceneItemsUnsubscribe?.();
   sceneReadyUnsubscribe?.();
   actionOpenUnsubscribe?.();

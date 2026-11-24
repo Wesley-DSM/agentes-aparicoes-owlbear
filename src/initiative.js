@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 
 export const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 export const INITIATIVE_KEY = `${EXTENSION_ID}/initiative-state`;
+const INITIATIVE_MIGRATION_KEY = `${EXTENSION_ID}/initiative-scene-migration-v1`;
 
 const MAX_INITIATIVE_ENTRIES = 50;
 
@@ -47,13 +48,40 @@ export function normalizeInitiativeState(raw) {
 }
 
 export async function readInitiativeState() {
-  const metadata = await OBR.room.getMetadata();
-  return normalizeInitiativeState(metadata?.[INITIATIVE_KEY]);
+  const [sceneMetadata, roomMetadata] = await Promise.all([
+    OBR.scene.getMetadata(),
+    OBR.room.getMetadata(),
+  ]);
+  const sceneState = sceneMetadata?.[INITIATIVE_KEY];
+  const migrationComplete = roomMetadata?.[INITIATIVE_MIGRATION_KEY] === true;
+  if (sceneState && typeof sceneState === "object") {
+    if (!migrationComplete) {
+      // Replace the old room-wide value after confirming that the scene copy
+      // already exists. This frees room metadata space previously used by the
+      // initiative list.
+      await OBR.room.setMetadata({ [INITIATIVE_KEY]: null, [INITIATIVE_MIGRATION_KEY]: true });
+    }
+    return normalizeInitiativeState(sceneState);
+  }
+
+  // Migrate the old room-wide state once. The new scene-scoped storage
+  // isolates turn order from room-wide CHAT resets and keeps each scene's
+  // initiative attached to the tokens that belong to that scene.
+  if (!migrationComplete) {
+    const legacyRoomState = roomMetadata?.[INITIATIVE_KEY];
+    const migrated = normalizeInitiativeState(legacyRoomState);
+    if (legacyRoomState && typeof legacyRoomState === "object") {
+      await OBR.scene.setMetadata({ [INITIATIVE_KEY]: migrated });
+    }
+    await OBR.room.setMetadata({ [INITIATIVE_KEY]: null, [INITIATIVE_MIGRATION_KEY]: true });
+    return migrated;
+  }
+  return normalizeInitiativeState(null);
 }
 
 export async function writeInitiativeState(state) {
   const normalized = normalizeInitiativeState(state);
-  await OBR.room.setMetadata({ [INITIATIVE_KEY]: normalized });
+  await OBR.scene.setMetadata({ [INITIATIVE_KEY]: normalized });
   return normalized;
 }
 

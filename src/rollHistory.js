@@ -3,6 +3,7 @@ import { calculateTestResult, activeDieValue } from "./diceRules.js";
 import { rollDamageExpression } from "./equipment.js";
 import { mergeHistoryInPersistedOrder, mergeRecoveredHistory, orderHistoryByAuthoritativeTimestamp } from "./chatOrder.js";
 import { getBrasiliaTimestamp } from "./brasiliaTime.js";
+import { CHAT_EPOCH_KEY, filterChatEntriesByEpoch, nextChatEpoch, normalizeChatEpoch, stampChatEntry } from "./chatEpoch.js";
 
 export const EXTENSION_ID = "com.agentesaparicoes.character-sheet";
 export const ROLL_HISTORY_KEY = `${EXTENSION_ID}/roll-history`;
@@ -18,6 +19,7 @@ let historyWriteQueue = Promise.resolve();
 let metadataListenerUnsubscribe = null;
 const pendingLocalEntries = new Map();
 let lastObservedHistory = [];
+let lastObservedEpoch = 0;
 
 function enqueueHistoryOperation(operation) {
   historyWriteQueue = historyWriteQueue.then(operation, operation);
@@ -41,8 +43,8 @@ function rememberPendingEntry(entry) {
 function ensureHistoryMetadataListener() {
   if (metadataListenerUnsubscribe) return;
   try {
-    metadataListenerUnsubscribe = OBR.room.onMetadataChange((metadata) => {
-      void reconcilePendingRollHistory(metadata).catch((error) => {
+    metadataListenerUnsubscribe = OBR.room.onMetadataChange(() => {
+      void reconcilePendingRollHistory().catch((error) => {
         console.debug("A&A: não foi possível reconciliar mensagens recentes do CHAT.", error);
       });
     });
@@ -164,7 +166,7 @@ function entryFromCompact(value) {
     return {
       id: value[1], type: "skill-roll", rolledAt: value[2], characterName: value[3],
       playerName: value[4], skillName: value[5], skillId: value[6], dice: value[7], reactions: value[8], dt: value[9] ?? null,
-      tokenId: value[10] ?? "", timestampSource: value[11] ?? "legacy",
+      tokenId: value[10] ?? "", timestampSource: value[11] ?? "legacy", chatEpoch: value[12] ?? 0,
     };
   }
   if (value[0] === "a") {
@@ -172,21 +174,21 @@ function entryFromCompact(value) {
       id: value[1], type: "ability-use", usedAt: value[2], characterName: value[3],
       playerName: value[4], abilityName: value[5], kind: value[6], reactions: value[7],
       traits: value[8] ?? "", description: value[9] ?? "", tokenId: value[10] ?? "",
-      inlineRolls: expandInlineRolls(value[11]), timestampSource: value[12] ?? "legacy",
+      inlineRolls: expandInlineRolls(value[11]), timestampSource: value[12] ?? "legacy", chatEpoch: value[13] ?? 0,
     };
   }
   if (value[0] === "m") {
     return {
       id: value[1], type: "manual-roll", rolledAt: value[2], characterName: value[3],
       playerName: value[4], dice: value[5], dt: value[6] ?? null, reactions: value[7], tokenId: value[8] ?? "",
-      timestampSource: value[9] ?? "legacy",
+      timestampSource: value[9] ?? "legacy", chatEpoch: value[10] ?? 0,
     };
   }
   if (value[0] === "c") {
     return {
       id: value[1], type: "chat-message", rolledAt: value[2], characterName: value[3],
       playerName: value[4], message: value[5], tokenId: value[6] ?? "",
-      inlineRolls: expandInlineRolls(value[7]), reactions: value[8], timestampSource: value[9] ?? "legacy",
+      inlineRolls: expandInlineRolls(value[7]), reactions: value[8], timestampSource: value[9] ?? "legacy", chatEpoch: value[10] ?? 0,
     };
   }
   if (value[0] === "w") {
@@ -195,7 +197,7 @@ function entryFromCompact(value) {
       weaponName: value[5], skillName: value[6], skillId: value[7], rank: value[8], dice: value[9], dt: value[10],
       damageExpression: value[11], criticalBonus: value[12], strength: value[13], description: value[14],
       damageRolls: value[15], damageTotal: value[16], tokenId: value[17] ?? "", reactions: value[18],
-      timestampSource: value[19] ?? "legacy",
+      timestampSource: value[19] ?? "legacy", chatEpoch: value[20] ?? 0,
     };
   }
   return null;
@@ -216,6 +218,7 @@ function normalizeEntry(rawValue) {
     playerName: String(value.playerName ?? "Jogador").slice(0, 70),
     rolledAt: eventTime,
     timestampSource: value.timestampSource === "brasilia" ? "brasilia" : "legacy",
+    chatEpoch: normalizeChatEpoch(value.chatEpoch),
     reactions: normalizeReactions(value.reactions),
     tokenId: String(value.tokenId ?? "").slice(0, 100),
   };
@@ -332,20 +335,20 @@ function compactLog(history) {
   const compact = normalizeRollHistory(history).map((entry) => {
     const reactions = compactReactions(entry.reactions);
     if (entry.type === "skill-roll") {
-      return ["s", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.skillName, entry.skillId, compactDice(entry.dice), reactions, entry.dt, entry.tokenId, entry.timestampSource];
+      return ["s", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.skillName, entry.skillId, compactDice(entry.dice), reactions, entry.dt, entry.tokenId, entry.timestampSource, entry.chatEpoch];
     }
     if (entry.type === "manual-roll") {
-      return ["m", entry.id, entry.rolledAt, entry.characterName, entry.playerName, compactDice(entry.dice), entry.dt, reactions, entry.tokenId, entry.timestampSource];
+      return ["m", entry.id, entry.rolledAt, entry.characterName, entry.playerName, compactDice(entry.dice), entry.dt, reactions, entry.tokenId, entry.timestampSource, entry.chatEpoch];
     }
     if (entry.type === "chat-message") {
-      return ["c", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.message, entry.tokenId, compactInlineRolls(entry.inlineRolls), reactions, entry.timestampSource];
+      return ["c", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.message, entry.tokenId, compactInlineRolls(entry.inlineRolls), reactions, entry.timestampSource, entry.chatEpoch];
     }
     if (entry.type === "weapon-attack") {
       return ["w", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.weaponName, entry.skillName, entry.skillId,
         entry.rank, compactDice(entry.dice), entry.dt, entry.damageExpression, entry.criticalBonus, entry.strength, entry.description,
-        entry.damageRolls, entry.damageTotal, entry.tokenId, reactions, entry.timestampSource];
+        entry.damageRolls, entry.damageTotal, entry.tokenId, reactions, entry.timestampSource, entry.chatEpoch];
     }
-    return ["a", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.abilityName, entry.kind, reactions, entry.traits.join(", "), entry.description, entry.tokenId, compactInlineRolls(entry.inlineRolls), entry.timestampSource];
+    return ["a", entry.id, entry.rolledAt, entry.characterName, entry.playerName, entry.abilityName, entry.kind, reactions, entry.traits.join(", "), entry.description, entry.tokenId, compactInlineRolls(entry.inlineRolls), entry.timestampSource, entry.chatEpoch];
   });
 
   // Room metadata is limited to 16 kB. Keep a safety margin by shortening
@@ -375,21 +378,37 @@ function compactLog(history) {
   return compact;
 }
 
-async function getStoredHistory() {
-  const metadata = await OBR.room.getMetadata();
-  return normalizeRollHistory(metadata?.[ROLL_HISTORY_KEY]);
+function readChatEpoch(metadata) {
+  return normalizeChatEpoch(metadata?.[CHAT_EPOCH_KEY]);
 }
 
-async function saveHistory(history) {
-  // Re-read just before writing and merge any events another participant has
-  // added since this operation took its snapshot. Metadata updates merge keys,
-  // not array contents, so writing a stale array could otherwise erase chat.
-  const proposed = normalizeRollHistory(history);
-  const current = await getStoredHistory();
+function readHistoryForEpoch(metadata, epoch = readChatEpoch(metadata)) {
+  return filterChatEntriesByEpoch(normalizeRollHistory(metadata?.[ROLL_HISTORY_KEY]), epoch);
+}
+
+async function getStoredChatState() {
+  const metadata = await OBR.room.getMetadata();
+  const epoch = readChatEpoch(metadata);
+  return { epoch, history: readHistoryForEpoch(metadata, epoch) };
+}
+
+async function getStoredHistory() {
+  return (await getStoredChatState()).history;
+}
+
+async function saveHistory(history, expectedEpoch) {
+  // Re-read immediately before writing. A clear advances the independent epoch
+  // marker, so a stale operation can never make pre-clear messages visible.
+  const metadata = await OBR.room.getMetadata();
+  const currentEpoch = readChatEpoch(metadata);
+  const current = readHistoryForEpoch(metadata, currentEpoch);
+  if (currentEpoch !== normalizeChatEpoch(expectedEpoch)) return current;
+
+  const proposed = filterChatEntriesByEpoch(normalizeRollHistory(history), currentEpoch);
   const updated = normalizeRollHistory(mergeHistoryInPersistedOrder(proposed, current, MAX_ROLL_HISTORY));
   const compact = compactLog(updated);
   await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: compact });
-  return normalizeRollHistory(compact);
+  return filterChatEntriesByEpoch(normalizeRollHistory(compact), currentEpoch);
 }
 
 export async function readRollHistory() {
@@ -400,31 +419,56 @@ export function appendRollHistory(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return getStoredHistory();
 
   return enqueueHistoryOperation(async () => {
-    // Never trust rolledAt/usedAt supplied by the calling UI. Obtain the shared
-    // reference time immediately before accepting the event into the log.
+    // Capture the current epoch before awaiting the shared clock. A send that
+    // began before a reset must remain attached to the old epoch, even if clock
+    // synchronization finishes only after the reset has completed.
+    const { epoch, history: existing } = await getStoredChatState();
+    if (lastObservedEpoch !== epoch) {
+      pendingLocalEntries.clear();
+      lastObservedHistory = [];
+      lastObservedEpoch = epoch;
+    }
+    // Never trust rolledAt/usedAt supplied by the calling UI.
     const officialTimestamp = await getBrasiliaTimestamp();
     const stampedValue = value.type === "ability-use"
       ? { ...value, usedAt: officialTimestamp, rolledAt: officialTimestamp, timestampSource: "brasilia" }
       : { ...value, rolledAt: officialTimestamp, usedAt: officialTimestamp, timestampSource: "brasilia" };
-    const entry = normalizeEntry(stampedValue);
-    if (!entry) return getStoredHistory();
+    const entry = normalizeEntry(stampChatEntry(stampedValue, epoch));
+    if (!entry) return existing;
     rememberPendingEntry(entry);
 
-    const existing = await getStoredHistory();
     if (!lastObservedHistory.length && existing.length) lastObservedHistory = existing;
-    if (existing.some((item) => item.id === entry.id)) return existing;
-    const updated = await saveHistory([...existing, entry]);
-    // Verify that our event survived a concurrent room-metadata update. The
-    // metadata listener keeps a short outbox alive to repair a write that is
-    // overwritten immediately after this verification.
-    const confirmed = await getStoredHistory();
-    if (!confirmed.some((item) => item.id === entry.id)) {
-      await saveHistory([...confirmed, entry]);
-      const repaired = await getStoredHistory();
-      lastObservedHistory = repaired;
-      return repaired;
+    if (existing.some((item) => item.id === entry.id)) {
+      pendingLocalEntries.delete(entry.id);
+      return existing;
     }
-    lastObservedHistory = confirmed;
+    const updated = await saveHistory([...existing, entry], epoch);
+
+    // The epoch is checked again after writing. If another participant cleared
+    // the CHAT while this request was in flight, this entry belongs to the old
+    // epoch and must not be recovered.
+    const confirmedState = await getStoredChatState();
+    if (confirmedState.epoch !== epoch) {
+      pendingLocalEntries.delete(entry.id);
+      lastObservedHistory = confirmedState.history;
+      lastObservedEpoch = confirmedState.epoch;
+      return confirmedState.history;
+    }
+    if (!confirmedState.history.some((item) => item.id === entry.id)) {
+      await saveHistory([...confirmedState.history, entry], epoch);
+      const repairedState = await getStoredChatState();
+      if (repairedState.epoch !== epoch) {
+        pendingLocalEntries.delete(entry.id);
+        lastObservedHistory = repairedState.history;
+        lastObservedEpoch = repairedState.epoch;
+        return repairedState.history;
+      }
+      lastObservedHistory = repairedState.history;
+      lastObservedEpoch = epoch;
+      return repairedState.history;
+    }
+    lastObservedHistory = confirmedState.history;
+    lastObservedEpoch = epoch;
     return updated;
   });
 }
@@ -435,50 +479,68 @@ export function appendRollHistory(value) {
  * the same array can still overwrite one another. Retain recently-sent entries
  * briefly and restore any that disappear from another participant's update.
  */
-export function reconcilePendingRollHistory(metadata = null) {
-  const raw = metadata?.[ROLL_HISTORY_KEY];
-  if (Array.isArray(raw) && raw.length === 0) {
-    // An explicit empty array represents the GM clearing the CHAT. Do not
-    // resurrect recently-sent entries after that deliberate action.
-    pendingLocalEntries.clear();
-    lastObservedHistory = [];
-    return Promise.resolve([]);
-  }
-
-  const incoming = normalizeRollHistory(raw);
-  const storedIds = new Set(incoming.map((entry) => entry.id));
-  const hasMissingPending = [...pendingLocalEntries.values()].some(({ entry, rememberedAt }) =>
-    monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS && !storedIds.has(entry.id));
-  if (!hasMissingPending) {
-    lastObservedHistory = incoming;
-    return Promise.resolve(incoming);
-  }
-
-  // Snapshot this before queued recovery starts. If the latest metadata has
-  // replaced an earlier array, this is the last order known to have existed.
-  const previousSnapshot = [...lastObservedHistory];
+export function reconcilePendingRollHistory() {
+  // Always read the authoritative current metadata instead of trusting an
+  // event snapshot that may already have been superseded by a clear operation.
   return enqueueHistoryOperation(async () => {
     const roomMetadata = await OBR.room.getMetadata();
-    const latestRaw = roomMetadata?.[ROLL_HISTORY_KEY];
-    if (Array.isArray(latestRaw) && latestRaw.length === 0) {
+    const epoch = readChatEpoch(roomMetadata);
+    if (lastObservedEpoch !== epoch) {
+      pendingLocalEntries.clear();
+      lastObservedHistory = [];
+      lastObservedEpoch = epoch;
+    }
+
+    const raw = roomMetadata?.[ROLL_HISTORY_KEY];
+    if (Array.isArray(raw) && raw.length === 0) {
       pendingLocalEntries.clear();
       lastObservedHistory = [];
       return [];
     }
-    const latest = normalizeRollHistory(latestRaw);
-    const ids = new Set(latest.map((entry) => entry.id));
-    const pending = [...pendingLocalEntries.values()]
-      .filter(({ entry, rememberedAt }) => monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS && !ids.has(entry.id))
-      .map(({ entry }) => entry);
-    if (!pending.length) {
+
+    const latest = readHistoryForEpoch(roomMetadata, epoch);
+    const storedIds = new Set(latest.map((entry) => entry.id));
+    const hasMissingPending = [...pendingLocalEntries.values()].some(({ entry, rememberedAt }) =>
+      entry.chatEpoch === epoch
+      && monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS
+      && !storedIds.has(entry.id));
+    if (!hasMissingPending) {
       lastObservedHistory = latest;
       return latest;
     }
-    // Keep previously confirmed events ahead of events that only appeared in
-    // the competing write, then append any local pending event never persisted.
-    const recovered = mergeRecoveredHistory(previousSnapshot, latest, pending, MAX_ROLL_HISTORY);
-    const saved = await saveHistory(recovered);
-    lastObservedHistory = await getStoredHistory();
+
+    const previousSnapshot = [...lastObservedHistory];
+    const latestState = await getStoredChatState();
+    if (latestState.epoch !== epoch) {
+      pendingLocalEntries.clear();
+      lastObservedHistory = latestState.history;
+      lastObservedEpoch = latestState.epoch;
+      return latestState.history;
+    }
+    const ids = new Set(latestState.history.map((entry) => entry.id));
+    const pending = [...pendingLocalEntries.values()]
+      .filter(({ entry, rememberedAt }) => entry.chatEpoch === epoch
+        && monotonicNow() - rememberedAt <= PENDING_RECOVERY_WINDOW_MS
+        && !ids.has(entry.id))
+      .map(({ entry }) => entry);
+    if (!pending.length) {
+      lastObservedHistory = latestState.history;
+      return latestState.history;
+    }
+
+    // Recover only events created in the still-current epoch. A previous clear
+    // invalidates this short-lived outbox rather than letting it restore old log.
+    const recovered = mergeRecoveredHistory(previousSnapshot, latestState.history, pending, MAX_ROLL_HISTORY);
+    const saved = await saveHistory(recovered, epoch);
+    const confirmedState = await getStoredChatState();
+    if (confirmedState.epoch !== epoch) {
+      pendingLocalEntries.clear();
+      lastObservedHistory = confirmedState.history;
+      lastObservedEpoch = confirmedState.epoch;
+      return confirmedState.history;
+    }
+    lastObservedHistory = confirmedState.history;
+    lastObservedEpoch = epoch;
     return saved;
   });
 }
@@ -506,7 +568,7 @@ function recalculateWeaponAttack(entry) {
 
 export function updateRollHistoryEntry(entryId, patch) {
   const operation = async () => {
-    const history = await getStoredHistory();
+    const { epoch, history } = await getStoredChatState();
     const entry = history.find((item) => item.id === entryId);
     if (!entry) return { ok: false, reason: "missing", history };
 
@@ -542,7 +604,7 @@ export function updateRollHistoryEntry(entryId, patch) {
     }
 
     if (entry.type === "weapon-attack") recalculateWeaponAttack(entry);
-    return { ok: true, history: await saveHistory(history) };
+    return { ok: true, history: await saveHistory(history, epoch) };
   };
 
   return enqueueHistoryOperation(operation);
@@ -550,7 +612,7 @@ export function updateRollHistoryEntry(entryId, patch) {
 
 export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null) {
   const operation = async () => {
-    const history = await getStoredHistory();
+    const { epoch, history } = await getStoredChatState();
     const entry = history.find((item) => item.id === entryId);
     const inlineRoll = inlineRollIndex === null
       ? null
@@ -566,7 +628,7 @@ export function rerollLogDie(entryId, dieIndex, newValue, inlineRollIndex = null
     if (die.rolls.length >= MAX_DIE_RESULTS) return { ok: false, reason: "reroll-limit", history };
     die.rolls.push(newValue);
     if (entry.type === "weapon-attack") recalculateWeaponAttack(entry);
-    return { ok: true, history: await saveHistory(history) };
+    return { ok: true, history: await saveHistory(history, epoch) };
   };
 
   return enqueueHistoryOperation(operation);
@@ -578,7 +640,7 @@ export function toggleLogReaction(entryId, emoji, playerKey) {
       return { ok: false, reason: "invalid", history: await getStoredHistory() };
     }
 
-    const history = await getStoredHistory();
+    const { epoch, history } = await getStoredChatState();
     const entry = history.find((item) => item.id === entryId);
     if (!entry) return { ok: false, reason: "missing", history };
 
@@ -605,7 +667,7 @@ export function toggleLogReaction(entryId, emoji, playerKey) {
     }
 
     entry.reactions = reactions;
-    return { ok: true, history: await saveHistory(history) };
+    return { ok: true, history: await saveHistory(history, epoch) };
   };
 
   return enqueueHistoryOperation(operation);
@@ -613,9 +675,15 @@ export function toggleLogReaction(entryId, emoji, playerKey) {
 
 export function clearRollHistory() {
   const operation = async () => {
+    const metadata = await OBR.room.getMetadata();
+    const nextEpoch = nextChatEpoch(readChatEpoch(metadata));
+
+    // Update both keys in one metadata patch. Any older write that arrives
+    // afterward still carries the previous epoch and is therefore ignored.
     pendingLocalEntries.clear();
     lastObservedHistory = [];
-    await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: [] });
+    await OBR.room.setMetadata({ [ROLL_HISTORY_KEY]: [], [CHAT_EPOCH_KEY]: nextEpoch });
+    lastObservedEpoch = nextEpoch;
     return [];
   };
   return enqueueHistoryOperation(operation);
